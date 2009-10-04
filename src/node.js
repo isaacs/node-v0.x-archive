@@ -221,13 +221,17 @@ node.Module.prototype.loadScript = function (loadPromise) {
     function include (url) {
       includeAsync(url).wait();
     }
+    
+    function setExports (obj) {
+      self.target = obj;
+    }
 
     // create wrapper function
-    var wrapper = "function (__filename, exports, require, include) { " + content + "\n};";
+    var wrapper = "function (__filename, exports, require, include, setExports) { " + content + "\n};";
     var compiled_wrapper = node.compile(wrapper, self.filename);
 
     node.loadingModules.unshift(self);
-    compiled_wrapper.apply(self.target, [self.filename, self.target, require, include]);
+    compiled_wrapper.apply(self.target, [self.filename, self.target, require, include, setExports]);
     node.loadingModules.shift();
 
     self.waitChildrenLoad(function () {
