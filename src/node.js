@@ -6,9 +6,20 @@ node.createProcess = function () {
   throw "node.createProcess() has been changed to node.createChildProcess() update your code";
 };
 
-node.createChildProcess = function (command) {
+node.createChildProcess = function (file, args, env) {
   var child = new node.ChildProcess();
-  child.spawn(command);
+  args = args || [];
+  env = env || process.ENV;
+  var envPairs = [];
+  for (var key in env) {
+    if (env.hasOwnProperty(key)) {
+      envPairs.push(key + "=" + env[key]);
+    }
+  }
+  // TODO Note envPairs is not currently used in child_process.cc. The PATH
+  // needs to be searched for the 'file' command if 'file' does not contain
+  // a '/' character.
+  child.spawn(file, args, envPairs);
   return child;
 };
 
@@ -263,7 +274,9 @@ node.Module.prototype.loadScript = function (loadPromise) {
     require.async = requireAsync;
     
     // create wrapper function
-    var wrapper = "function (__module, __filename, exports, require) { " + content + "\n};";
+    var wrapper = "var __wrap__ = function (__module, __filename, exports, require) { " 
+                + content 
+                + "\n}; __wrap__;";
     var compiled_wrapper = node.compile(wrapper, self.filename);
 
     compiled_wrapper.apply(self.exports, [self, self.filename, self.exports, require]);

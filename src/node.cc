@@ -15,6 +15,7 @@
 #include <net.h>
 #include <file.h>
 #include <http.h>
+#include <signal_handler.h>
 #include <timer.h>
 #include <child_process.h>
 #include <constants.h>
@@ -380,6 +381,7 @@ static Local<Object> Load(int argc, char *argv[]) {
 
   Stdio::Initialize(node_obj);
   Timer::Initialize(node_obj);
+  SignalHandler::Initialize(node_obj);
   ChildProcess::Initialize(node_obj);
 
   DefineConstants(node_obj);
@@ -455,6 +457,7 @@ static void ParseArgs(int *argc, char **argv) {
       exit(0);
     } else if (strcmp(arg, "--v8-options") == 0) {
       argv[i] = reinterpret_cast<const char*>("--help");
+      dash_dash_index = i+1;
     }
   }
 }
@@ -463,7 +466,7 @@ static void ParseArgs(int *argc, char **argv) {
 
 int main(int argc, char *argv[]) {
   node::ParseArgs(&argc, argv);
-  V8::SetFlagsFromCommandLine(&argc, argv, false);
+  V8::SetFlagsFromCommandLine(&node::dash_dash_index, argv, false);
 
   evcom_ignore_sigpipe();
   ev_default_loop(EVFLAG_AUTO);  // initialize the default ev loop.
