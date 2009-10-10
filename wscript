@@ -3,17 +3,18 @@ import platform
 import re
 import Options
 import sys, os, shutil
+from Utils import cmd_output
 from os.path import join, dirname, abspath
 from logging import fatal
 
-VERSION="0.1.13"
+cwd = os.getcwd()
+VERSION="0.1.14"
 APPNAME="node.js"
 
 import js2c
 
 srcdir = '.'
 blddir = 'build'
-cwd = os.getcwd()
 
 def set_options(opt):
   # the gcc module provides a --debug-level option
@@ -226,6 +227,9 @@ def v8_cmd(bld, variant):
 
 def build_v8(bld):
   v8 = bld.new_task_gen(
+    source        = 'deps/v8/SConstruct ' 
+                  + bld.path.ant_glob('v8/include/*') 
+                  + bld.path.ant_glob('v8/src/*'),
     target        = bld.env["staticlib_PATTERN"] % "v8",
     rule          = v8_cmd(bld, "default"),
     before        = "cxx",
@@ -339,15 +343,21 @@ def build(bld):
   node.chmod = 0755
 
   def subflags(program):
+    if os.path.exists(join(cwd, ".git")):
+      actual_version=cmd_output("git describe").strip()
+    else:
+      actual_version=VERSION
+
     x = { 'CCFLAGS'   : " ".join(program.env["CCFLAGS"])
         , 'CPPFLAGS'  : " ".join(program.env["CPPFLAGS"])
         , 'LIBFLAGS'  : " ".join(program.env["LIBFLAGS"])
-        , 'VERSION'   : VERSION
+        , 'VERSION'   : actual_version
         , 'PREFIX'    : program.env["PREFIX"]
         }
     return x
 
   # process file.pc.in -> file.pc
+
   node_version = bld.new_task_gen('subst', before="cxx")
   node_version.source = 'src/node_version.h.in'
   node_version.target = 'src/node_version.h'
