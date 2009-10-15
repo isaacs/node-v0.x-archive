@@ -24,7 +24,7 @@ node.createChildProcess = function (file, args, env) {
 };
 
 node.exec = function () {
-  throw new Error("node.exec() has moved. Use require('/utils.js') to bring it back.");
+  throw new Error("node.exec() has moved. Use require('/sys.js') to bring it back.");
 }
 
 node.http.createServer = function () {
@@ -97,6 +97,25 @@ node.mixin = function() {
 	// Return the modified object
 	return target;
 };
+
+// Signal Handlers
+
+(function () { // anonymous namespace
+
+  function isSignal (event) {
+    return event.slice(0, 3) === 'SIG' && node.hasOwnProperty(event);
+  };
+
+  process.addListener("newListener", function (event) {
+    if (isSignal(event) && process.listeners(event).length === 0) {
+      var handler = new node.SignalHandler(node[event]);
+      handler.addListener("signal", function () {
+        process.emit(event);
+      });
+    }
+  });
+
+})(); // anonymous namespace
 
 // Timers
 
@@ -320,7 +339,7 @@ process.exit = function (code) {
 };
 
 node.exit = function (code) {
-  throw new Error("process.exit() has been renamed to process.exit().");
+  throw new Error("node.exit() has been renamed to process.exit().");
 };
 
 (function () {

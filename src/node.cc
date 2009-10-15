@@ -250,6 +250,42 @@ v8::Handle<v8::Value> Exit(const v8::Arguments& args) {
   return Undefined();
 }
 
+v8::Handle<v8::Value> Kill(const v8::Arguments& args) {
+  HandleScope scope;
+  
+  if (args.Length() < 1 || !args[0]->IsNumber()) {
+    return ThrowException(Exception::Error(String::New("Bad argument.")));
+  }
+  
+  pid_t pid = args[0]->IntegerValue();
+
+  int sig = SIGTERM;
+
+  if (args.Length() >= 2) {
+    if (args[1]->IsNumber()) {
+      sig = args[1]->Int32Value();
+    } else if (args[1]->IsString()) {
+      Local<String> signame = args[1]->ToString();
+      Local<Object> process = Context::GetCurrent()->Global();
+      Local<Object> node_obj = process->Get(String::NewSymbol("node"))->ToObject();
+
+      Local<Value> sig_v = node_obj->Get(signame);
+      if (!sig_v->IsNumber()) {
+        return ThrowException(Exception::Error(String::New("Unknown signal")));
+      }
+      sig = sig_v->Int32Value();
+    }
+  }
+
+  int r = kill(pid, sig);
+
+  if (r != 0) {
+    return ThrowException(Exception::Error(String::New(strerror(errno))));
+  }
+
+  return Undefined();
+}
+
 typedef void (*extInit)(Handle<Object> exports);
 
 // DLOpen is node.dlopen(). Used to load 'module.node' dynamically shared
@@ -420,12 +456,14 @@ static Local<Object> Load(int argc, char *argv[]) {
   }
   // assign process.ENV
   process->Set(String::NewSymbol("ENV"), env);
+  process->Set(String::NewSymbol("pid"), Integer::New(getpid()));
 
   // define various internal methods
   NODE_SET_METHOD(node_obj, "compile", Compile);
   NODE_SET_METHOD(node_obj, "reallyExit", Exit);
   NODE_SET_METHOD(node_obj, "cwd", Cwd);
   NODE_SET_METHOD(node_obj, "dlopen", DLOpen);
+  NODE_SET_METHOD(node_obj, "kill", Kill);
 
   // Assign the EventEmitter. It was created in main().
   node_obj->Set(String::NewSymbol("EventEmitter"),
