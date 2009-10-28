@@ -132,6 +132,12 @@ def configure(conf):
 
   conf.env.append_value("CCFLAGS", "-DX_STACKSIZE=%d" % (1024*64))
 
+  # LFS
+  conf.env.append_value('CCFLAGS',  '-D_LARGEFILE_SOURCE')
+  conf.env.append_value('CXXFLAGS', '-D_LARGEFILE_SOURCE')
+  conf.env.append_value('CCFLAGS',  '-D_FILE_OFFSET_BITS=64')
+  conf.env.append_value('CXXFLAGS', '-D_FILE_OFFSET_BITS=64')
+
   # Split off debug variant before adding variant specific defines
   debug_env = conf.env.copy()
   conf.set_env_name('debug', debug_env)
@@ -310,16 +316,16 @@ def build(bld):
   node.target       = "node"
   node.source = """
     src/node.cc
-    src/events.cc
-    src/http.cc
-    src/net.cc
+    src/node_child_process.cc
+    src/node_constants.cc
+    src/node_dns.cc
+    src/node_events.cc
+    src/node_file.cc
+    src/node_http.cc
+    src/node_net.cc
+    src/node_signal_handler.cc
     src/node_stdio.cc
-    src/dns.cc
-    src/file.cc
-    src/signal_handler.cc
-    src/timer.cc
-    src/child_process.cc
-    src/constants.cc
+    src/node_timer.cc
   """
   node.includes = """
     src/ 
@@ -331,7 +337,8 @@ def build(bld):
     deps/http_parser
     deps/coupling
   """
-  node.uselib_local = "evcom ev eio http_parser coupling"
+  node.add_objects = 'ev eio'
+  node.uselib_local = "evcom http_parser coupling"
   node.uselib = "UDNS V8 EXECINFO DL"
   node.install_path = '${PREFIX}/lib'
   node.install_path = '${PREFIX}/bin'
@@ -371,9 +378,9 @@ def build(bld):
   bld.install_files('${PREFIX}/include/node/', """
     config.h
     src/node.h
-    src/object_wrap.h
-    src/events.h
-    src/net.h
+    src/node_object_wrap.h
+    src/node_events.h
+    src/node_net.h
   """)
 
   # Only install the man page if it exists. 
@@ -388,3 +395,16 @@ def build(bld):
   bld.install_files('${PREFIX}/lib/node/wafadmin/Tools', 'tools/wafadmin/Tools/*.py')
 
   bld.install_files('${PREFIX}/lib/node/libraries/', 'lib/*.js')
+
+def shutdown():
+  Options.options.debug
+  # HACK to get binding.node out of build directory.
+  # better way to do this?
+  if not Options.commands['clean']:
+    if os.path.exists('build/default/node') and not os.path.exists('node'):
+      os.symlink('build/default/node', 'node')
+    if os.path.exists('build/debug/node_g') and not os.path.exists('node_g'):
+      os.symlink('build/debug/node_g', 'node_g')
+  else:
+    if os.path.exists('node'): os.unlink('node')
+    if os.path.exists('node_g'): os.unlink('node_g')

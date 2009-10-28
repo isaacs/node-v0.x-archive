@@ -1,5 +1,5 @@
 // Copyright 2009 Ryan Dahl <ry@tinyclouds.org>
-#include <events.h>
+#include <node_events.h>
 
 #include <assert.h>
 #include <stdlib.h>
@@ -17,10 +17,6 @@
 #include <v8.h>
 
 namespace node {
-
-#ifndef RAMP
-# define RAMP(x) ((x) > 0 ? (x) : 0)
-#endif
 
 using namespace v8;
 
