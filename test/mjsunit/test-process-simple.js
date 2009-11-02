@@ -1,6 +1,6 @@
-node.mixin(require("common.js"));
+process.mixin(require("./common"));
 
-var cat = node.createChildProcess("cat");
+var cat = process.createChildProcess("cat");
 
 var response = "";
 var exit_status = -1;

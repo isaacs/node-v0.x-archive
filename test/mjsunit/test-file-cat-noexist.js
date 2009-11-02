@@ -1,8 +1,8 @@
-node.mixin(require("common.js"));
+process.mixin(require("./common"));
 var got_error = false;
 
-var filename = node.path.join(fixturesDir, "does_not_exist.txt");
-var promise = node.fs.cat(filename, "raw");
+var filename = path.join(fixturesDir, "does_not_exist.txt");
+var promise = posix.cat(filename, "raw");
 
 promise.addCallback(function (content) {
   debug("cat returned some content: " + content);

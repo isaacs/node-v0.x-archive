@@ -1,16 +1,16 @@
-node.mixin(require("common.js"));
+process.mixin(require("./common"));
 
-var dirname = node.path.dirname(__filename);
-var fixtures = node.path.join(dirname, "fixtures");
-var d = node.path.join(fixtures, "dir");
+var dirname = path.dirname(__filename);
+var fixtures = path.join(dirname, "fixtures");
+var d = path.join(fixtures, "dir");
 
 var mkdir_error = false;
 var rmdir_error = false;
 
-node.fs.mkdir(d, 0x666).addCallback(function () {
+posix.mkdir(d, 0x666).addCallback(function () {
   puts("mkdir okay!");
 
-  node.fs.rmdir(d).addCallback(function () {
+  posix.rmdir(d).addCallback(function () {
     puts("rmdir okay!");
 
   }).addErrback(function (e) {

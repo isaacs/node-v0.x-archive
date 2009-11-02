@@ -1,16 +1,17 @@
-libDir = node.path.join(node.path.dirname(__filename), "../lib");
+var path = require("path");
+libDir = path.join(path.dirname(__filename), "../lib");
 require.paths.unshift(libDir);
-node.mixin(require("/utils.js"));
+process.mixin(require("sys"));
 var benchmarks = [ "static_http_server.js" 
                  , "timers.js"
                  , "process_loop.js"
                  ];
 
-var benchmark_dir = node.path.dirname(__filename);
+var benchmark_dir = path.dirname(__filename);
 
 function exec (script, callback) {
   var start = new Date();
-  var child = node.createChildProcess(ARGV[0], [node.path.join(benchmark_dir, script)]);
+  var child = process.createChildProcess(process.ARGV[0], [path.join(benchmark_dir, script)]);
   child.addListener("exit", function (code) {
     var elapsed = new Date() - start;
     callback(elapsed, code);

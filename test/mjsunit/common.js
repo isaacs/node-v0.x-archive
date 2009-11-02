@@ -1,10 +1,15 @@
-exports.testDir = node.path.dirname(__filename);
-exports.fixturesDir = node.path.join(exports.testDir, "fixtures");
-exports.libDir = node.path.join(exports.testDir, "../../lib");
+var path = require("path");
+
+exports.testDir = path.dirname(__filename);
+exports.fixturesDir = path.join(exports.testDir, "fixtures");
+exports.libDir = path.join(exports.testDir, "../../lib");
 
 require.paths.unshift(exports.libDir);
 
-var mjsunit = require("/mjsunit.js");
-var utils = require("/utils.js");
-node.mixin(exports, mjsunit, utils);
+var mjsunit = require("mjsunit");
+var sys = require("sys");
+
+process.mixin(exports, mjsunit, sys);
+exports.posix = require("posix");
+exports.path = path;
 

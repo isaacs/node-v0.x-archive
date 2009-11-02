@@ -16,8 +16,8 @@ An example of a web server written with Node which responds with "Hello
 World": 
 
 ----------------------------------------
-var sys = require("/sys.js"), 
-   http = require("/http.js");
+var sys = require("sys"), 
+   http = require("http");
 http.createServer(function (request, response) {
   response.sendHeader(200, {"Content-Type": "text/plain"});
   response.sendBody("Hello World\n");
@@ -46,29 +46,14 @@ Unless otherwise noted, functions are all asynchronous and do not block
 execution.
 
 
-=== Helpers
+=== Global Objects
 
-These objects are available to all programs.
++GLOBAL+ ::
+The global namespace object.
 
-+node.cwd()+::
-Returns the current working directory of the process.
-
-+node.kill(pid, signal="SIGTERM")+ ::
-Send a signal to a process. +pid+ is the process id and +signal+ is the
-signal to send; for example, "SIGINT" or "SIGUSR1".  See kill(2) for more
-information.
-
-+node.compile(source, scriptOrigin)+::
-Just like +eval()+ except that you can specify a +scriptOrigin+ for better
-error reporting.
-
-+__filename+ ::
-The filename of the script being executed.
-
-+__module+ ::
-A reference to the current module (of type +node.Module+). In particular
-+__module.exports+ is the same as the +exports+ object. See +src/node.js+ for
-more information.
++process+ ::
+The process object. Most stuff lives in here. See the "process object"
+section.
 
 +require(path)+ ::
 See the modules section.
@@ -76,23 +61,17 @@ See the modules section.
 +require.paths+ ::
 The search path for absolute path arguments to +require()+.
 
-+node.mixin([deep], target, object1, [objectN])+ ::
-Extend one object with one or more others, returning the modified object.
-If no target is specified, the +process+ namespace itself is extended. 
-Keep in mind that the target object will be modified, and will be returned
-from +node.mixin()+.
-+
-If a boolean true is specified as the first argument, Node performs a deep
-copy, recursively copying any objects it finds. Otherwise, the copy will
-share structure with the original object(s).
-+
-Undefined properties are not copied. However, properties inherited from the
-object's prototype will be copied over.
++__filename+ ::
+The filename of the script being executed.
+
++module+ ::
+A reference to the current module (of type +process.Module+). In particular
++module.exports+ is the same as the +exports+ object. See +src/process.js+ for
+more information.
+
+
 
 === The +process+ Object
-
-+process+ is the equivalent of +window+ in browser-side javascript. It is
-the global scope. +process+ is an instance of +node.EventEmitter+.
 
 [cols="1,2,10",options="header"]
 |=========================================================
@@ -111,10 +90,6 @@ the global scope. +process+ is an instance of +node.EventEmitter+.
                                           signal names such as SIGINT, SIGUSR1, etc.
 |=========================================================
 
-+process.exit(code=0)+::
-Ends the process with the specified code. By default it exits with the
-success code 0.
-
 +process.ARGV+ ::
 An array containing the command line arguments.
 
@@ -124,9 +99,39 @@ An object containing the user environment. See environ(7).
 +process.pid+ ::
 The PID of the process.
 
++process.exit(code=0)+::
+Ends the process with the specified code. By default it exits with the
+success code 0.
+
++process.cwd()+::
+Returns the current working directory of the process.
+
++process.kill(pid, signal="SIGTERM")+ ::
+Send a signal to a process. +pid+ is the process id and +signal+ is the
+signal to send; for example, "SIGINT" or "SIGUSR1".  See kill(2) for more
+information.
+
++process.compile(source, scriptOrigin)+::
+Just like +eval()+ except that you can specify a +scriptOrigin+ for better
+error reporting.
+
++process.mixin([deep], target, object1, [objectN])+ ::
+Extend one object with one or more others, returning the modified object.
+If no target is specified, the +GLOBAL+ namespace itself is extended. 
+Keep in mind that the target object will be modified, and will be returned
+from +process.mixin()+.
++
+If a boolean true is specified as the first argument, Node performs a deep
+copy, recursively copying any objects it finds. Otherwise, the copy will
+share structure with the original object(s).
++
+Undefined properties are not copied. However, properties inherited from the
+object's prototype will be copied over.
+
 === System module
 
-These function are in +"/sys.js"+. Use +require("/sys.js")+ to access them.
+These function are in the module +"sys"+. Use +require("sys")+ to access
+them.
 
 +puts(string)+::
 Outputs the +string+ and a trailing new-line to +stdout+.
@@ -146,7 +151,7 @@ Executes the command as a child process, buffers the output and returns it
 in a promise callback.
 +
 ----------------------------------------
-var sys = require("/sys.js");
+var sys = require("sys");
 sys.exec("ls /").addCallback(function (stdout, stderr) {
   puts(stdout);
 });
@@ -161,7 +166,7 @@ sys.exec("ls /").addCallback(function (stdout, stderr) {
 
 Many objects in Node emit events: a TCP server emits an event each time
 there is a connection, a child process emits an event when it exits. All
-objects which emit events are are instances of +node.EventEmitter+.
+objects which emit events are are instances of +process.EventEmitter+.
 
 Events are represented by a camel-cased string. Here are some examples:
 +"connection"+, +"receive"+, +"messageBegin"+.
@@ -173,7 +178,7 @@ Some asynchronous file operations return an +EventEmitter+ called a
 _promise_.  A promise emits just a single event when the operation is
 complete.
 
-==== +node.EventEmitter+
+==== +process.EventEmitter+
 
 All EventEmitters emit the event +"newListener"+ when new listeners are
 added.
@@ -204,9 +209,9 @@ manipulated, e.g. to remove listeners.
 +emitter.emit(event, arg1, arg2, ...)+ ::
 Execute each of the listeners in order with the supplied arguments.
 
-==== +node.Promise+
+==== +process.Promise+
 
-+node.Promise+ inherits from +node.eventEmitter+. A promise emits one of two
++process.Promise+ inherits from +process.eventEmitter+. A promise emits one of two
 events: +"success"+ or +"error"+.  After emitting its event, it will not
 emit anymore events.
 
@@ -215,6 +220,7 @@ emit anymore events.
 | Event       | Parameters       | Notes
 | +"success"+ | (depends)        |
 | +"error"+   | (depends)        |
+| +"cancel"+  | (depends)        |
 |=========================================================
 
 +promise.addCallback(listener)+ ::
@@ -223,8 +229,11 @@ Adds a listener for the +"success"+ event. Returns the same promise object.
 +promise.addErrback(listener)+ ::
 Adds a listener for the +"error"+ event. Returns the same promise object.
 
++promise.addCancelback(listener)+ ::
+Adds a listener for the +"cancel"+ event. Returns the same promise object.
+
 +promise.emitSuccess(arg1, arg2, ...)+ ::
-If you created the promise (by doing +new node.Promise()+) then call
+If you created the promise (by doing +new process.Promise()+) then call
 +emitSuccess+ to emit the +"success"+ event with the given arguments. 
 +
 (+promise.emit("success", arg1, arg2, ...)+ should also work, but doesn't at
@@ -233,16 +242,27 @@ the moment due to a bug; use +emitSuccess+ instead.)
 +promise.emitError(arg1, arg2, ...)+ ::
 Emits the +"error"+ event.
 
++promise.emitCancel(arg1, arg2, ...)+ ::
+Emits the +"cancel"+ event. You may still get a +"success"+ or +"error"+
+callback if the promise giver does not handle the cancel event. Use
++promise.cancel()+ to ignore any later events.
+
++promise.cancel()+ ::
+Clears all +"success"+ and +"error"+ event listeners from the promise, then
+emits the +"cancel"+ event. Whether or not the promise is actually canceled
+or not depends on the promise giver. This also clears Promise.timeout() if one
+was set.
+
 +promise.timeout(timeout = undefined)+ ::
 If the +timeout+ parameter is provided, the promise will emit an +"error"+
 event after the given amount of millseconds. The timeout is canceled by any
-+"success"+ or +"error"+ event being emitted by the Promise.
++"success"+, +"error"+ or +"cancel"+ event being emitted by the Promise.
 +
 To tell apart a timeout from a regular "error" event, use the following test:
 +
 ----------------------------------------
 promise.addErrback(function(e) {
-  if (e instanceof Error && e.message === 'timeout') {
+  if (e instanceof Error && e.message === "timeout") {
     // handle timeout
   } else {
     // handle regular error
@@ -277,7 +297,7 @@ program setup, not during busy server activity.
 
 === Standard I/O
 
-Standard I/O is handled through a special object +node.stdio+. stdout and
+Standard I/O is handled through a special object +process.stdio+. stdout and
 stdin are fully non-blocking (even when piping to files). stderr is
 synchronous.
 
@@ -288,36 +308,38 @@ synchronous.
 | +"data"+   | +data+     | Made when stdin has received a chunk of data.
                             Depending on the encoding that stdin was opened
                             with, +data+ will be  a string. This event will
-                            only be emited after +node.stdio.open()+ has
+                            only be emited after +process.stdio.open()+ has
                             been called.
 | +"close"+  |            | Made when stdin has been closed.
 |=========================================================
 
-+node.stdio.open(encoding="utf8")+::
-Open stdin. The program will not exit until +node.stdio.close()+ has been
++process.stdio.open(encoding="utf8")+::
+Open stdin. The program will not exit until +process.stdio.close()+ has been
 called or the +"close"+ event has been emitted.
 
-+node.stdio.write(data)+::
++process.stdio.write(data)+::
 Write data to stdout.
 
-+node.stdio.writeError(data)+::
++process.stdio.writeError(data)+::
 Write data to stderr. Synchronous.
 
-+node.stdio.close()+::
++process.stdio.close()+::
 Close stdin.
 
 
 === Modules
 
+Node uses the CommonJS module system
+
 Node has a simple module loading system.  In Node, files and modules are in
 one-to-one correspondence.  As an example, +foo.js+ loads the module
-+circle.js+.
++circle.js+ in the same directory.
 
 The contents of +foo.js+:
 
 ----------------------------------------
-var circle = require("circle.js"),
-       sys = require("/sys.js");
+var circle = require("./circle"),
+var sys = require("sys");
 sys.puts("The area of a circle of radius 4 is " + circle.area(4));
 ----------------------------------------
 
@@ -339,42 +361,56 @@ The module +circle.js+ has exported the functions +area()+ and
 +circumference()+.  To export an object, add to the special +exports+
 object.  (Alternatively, one can use +this+ instead of +exports+.) Variables
 local to the module will be private. In this example the variable +PI+ is
-private to +circle.js+. The function +puts()+ comes from the module
-+"/sys.js"+.
+private to +circle.js+. The function +puts()+ comes from the module +"sys"+,
+which is a built-in module. Modules which are not prefixed by +"./"+ are
+built-in module--more about this later.
 
-The module path is relative to the file calling +require()+.  That is,
-+circle.js+ must be in the same directory as +foo.js+ for +require()+ to
-find it.
+A module prefixed with +"./"+ is relative to the file calling +require()+.
+That is, +circle.js+ must be in the same directory as +foo.js+ for
++require("./circle")+ to find it.
 
-Use +node.mixin()+ to include modules into the global namespace.
-
-----------------------------------------
-node.mixin(process, require("circle.js"), require("/sys.js"));
-puts("The area of a cirlce of radius 4 is " + area(4));
-----------------------------------------
-
-When an absolute path is given to +require()+, like
-+require("/mjsunit.js")+ the module is searched for in the
-+require.paths+ array. +require.paths+ on my system looks like this: 
+Without the leading +"./"+, like +require("mjsunit")+ the module is searched
+for in the +require.paths+ array. +require.paths+ on my system looks like
+this: 
 
 ----------------------------------------
 [ "/home/ryan/.node_libraries"
-, "/home/ryan/local/node/lib/node_libraries" 
-, "/"
+, "/usr/local/lib/node/libraries" 
 ]
 ----------------------------------------
 
-That is, first Node looks for +"/home/ryan/.node_libraries/mjsunit.js"+ and
-then for +"/home/ryan/local/node/lib/node_libraries/mjsunit.js"+. If not
-found, it finally looks for +"/mjsunit.js"+ (in the root directory).
+That is, when +require("mjsunit")+ is called Node looks for 
+
+  1. +"/home/ryan/.node_libraries/mjsunit.js"+ 
+
+  2. +"/home/ryan/.node_libraries/mjsunit.node"+ 
+
+  3. +"/home/ryan/.node_libraries/mjsunit/index.js"+ 
+
+  4. +"/home/ryan/.node_libraries/mjsunit/index.node"+ 
+
+  5. +"/usr/local/lib/node/libraries/mjsunit.js"+ 
+
+  6. +"/usr/local/lib/node/libraries/mjsunit.node"+ 
+
+  7. +"/usr/local/lib/node/libraries/mjsunit/index.js"+ 
+
+  8. +"/usr/local/lib/node/libraries/mjsunit/index.node"+ 
+
+interrupting once a file is found. Files ending in +".node"+ are binary Addon
+Modules; see the section below about addons. +"index.js"+ allows one to
+package a module as a directory.
 
 +require.paths+ can be modified at runtime by simply unshifting new
-paths on to it and at startup with the +NODE_LIBRARY_PATHS+ environmental
+paths on to it and at startup with the +NODE_PATH+ environmental
 variable (which should be a list of paths, colon separated).
 
-Node comes with several libraries which are installed when +"make install"+
-is run. These are currently undocumented, but do look them up in your
-system.
+Use +process.mixin()+ to include modules into the global namespace.
+
+----------------------------------------
+process.mixin(GLOBAL, require("./circle"), require("sys"));
+puts("The area of a cirlce of radius 4 is " + area(4));
+----------------------------------------
 
 
 
@@ -403,10 +439,10 @@ Stops a interval from triggering.
 === Child Processes
 
 Node provides a tridirectional +popen(3)+ facility through the class
-+node.ChildProcess+. It is possible to stream data through the child's +stdin+,
++process.ChildProcess+. It is possible to stream data through the child's +stdin+,
 +stdout+, and +stderr+ in a fully non-blocking way.
 
-==== +node.ChildProcess+
+==== +process.ChildProcess+
 
 [cols="1,2,10",options="header"]
 |=========================================================
@@ -429,12 +465,12 @@ Node provides a tridirectional +popen(3)+ facility through the class
                             +"error"+ callbacks will no longer be made.
 |=========================================================
 
-+node.createChildProcess(command, args=[], env=ENV)+::
++process.createChildProcess(command, args=[], env=ENV)+::
 Launches a new process with the given +command+, command line arguments, and
 environmental variables. For example:
 +
 ----------------------------------------
-var ls = node.createChildProcess("ls", ["-lh", "/usr"]);
+var ls = process.createChildProcess("ls", ["-lh", "/usr"]);
 ls.addListener("output", function (data) {
   puts(data);
 });
@@ -464,16 +500,22 @@ will be sent +"SIGTERM"+. See signal(7) for a list of available signals.
 
 
 
-=== File I/O
+=== POSIX module
 
-File I/O is provided by simple wrappers around standard POSIX functions.
-All POSIX wrappers have a similar form.
-They return a promise (+node.Promise+). Example:
+File I/O is provided by simple wrappers around standard POSIX functions.  To
+use this module do +require("posix")+. 
+
+All POSIX wrappers have a similar form.  They return a promise
+(+process.Promise+). Example of deleting a file:
 
 ------------------------------------------------------------------------------
-var promise = node.fs.unlink("/tmp/hello");
+var posix = require("posix"),
+      sys = require("sys");
+
+var promise = posix.unlink("/tmp/hello");
+
 promise.addCallback(function () {
-  puts("successfully deleted /tmp/hello");
+  sys.puts("successfully deleted /tmp/hello");
 });
 ------------------------------------------------------------------------------
 
@@ -481,9 +523,9 @@ There is no guaranteed ordering to the POSIX wrappers. The
 following is very much prone to error
 
 ------------------------------------------------------------------------------
-node.fs.rename("/tmp/hello", "/tmp/world");
-node.fs.stat("/tmp/world").addCallback(function (stats) {
-  puts("stats: " + JSON.stringify(stats));
+posix.rename("/tmp/hello", "/tmp/world");
+posix.stat("/tmp/world").addCallback(function (stats) {
+  sys.puts("stats: " + JSON.stringify(stats));
 });
 ------------------------------------------------------------------------------
 
@@ -491,9 +533,9 @@ It could be that +stat()+ is executed before the +rename()+.
 The correct way to do this is to chain the promises.
 
 ------------------------------------------------------------------------------
-node.fs.rename("/tmp/hello", "/tmp/world").addCallback(function () {
-  node.fs.stat("/tmp/world").addCallback(function (stats) {
-    puts("stats: " + JSON.stringify(stats));
+posix.rename("/tmp/hello", "/tmp/world").addCallback(function () {
+  posix.stat("/tmp/world").addCallback(function (stats) {
+    sys.puts("stats: " + JSON.stringify(stats));
   });
 });
 ------------------------------------------------------------------------------
@@ -501,65 +543,64 @@ node.fs.rename("/tmp/hello", "/tmp/world").addCallback(function () {
 Or use the +promise.wait()+ functionality:
 
 ------------------------------------------------------------------------------
-node.fs.rename("/tmp/hello", "/tmp/world").wait();
-node.fs.stat("/tmp/world").addCallback(function (stats) {
-  puts("stats: " + JSON.stringify(stats));
-});
+posix.rename("/tmp/hello", "/tmp/world").wait();
+var stats = posix.stat("/tmp/world").wait();
+sys.puts("stats: " + JSON.stringify(stats));
 ------------------------------------------------------------------------------
 
-+node.fs.rename(path1, path2)+ ::
++posix.rename(path1, path2)+ ::
   See rename(2).
   - on success: no parameters.
   - on error: no parameters.
 
 
 
-+node.fs.stat(path)+ ::
++posix.stat(path)+ ::
   See stat(2).
-  - on success: Returns +node.fs.Stats+ object. It looks like this:
+  - on success: Returns +posix.Stats+ object. It looks like this:
     +{ dev: 2049, ino: 305352, mode: 16877, nlink: 12, uid: 1000, gid: 1000,
     rdev: 0, size: 4096, blksize: 4096, blocks: 8, atime:
     "2009-06-29T11:11:55Z", mtime: "2009-06-29T11:11:40Z", ctime:
     "2009-06-29T11:11:40Z" }+
-    See the +node.fs.Stats+ section below for more information.
+    See the +posix.Stats+ section below for more information.
   - on error: no parameters.
 
-+node.fs.unlink(path)+ ::
++posix.unlink(path)+ ::
   See unlink(2)
   - on success: no parameters.
   - on error: no parameters.
 
 
-+node.fs.rmdir(path)+ ::
++posix.rmdir(path)+ ::
   See rmdir(2)
   - on success: no parameters.
   - on error: no parameters.
 
-+node.fs.mkdir(path, mode)+ ::
++posix.mkdir(path, mode)+ ::
   See mkdir(2)
   - on success: no parameters.
   - on error: no parameters.
 
-+node.fs.readdir(path)+ ::
++posix.readdir(path)+ ::
   Reads the contents of a directory.
   - on success: One argument, an array containing the names (strings) of the
     files in the directory (excluding "." and "..").
   - on error: no parameters.
 
 
-+node.fs.close(fd)+ ::
++posix.close(fd)+ ::
   See close(2)
   - on success: no parameters.
   - on error: no parameters.
 
 
-+node.fs.open(path, flags, mode)+::
-  See open(2). The constants like +O_CREAT+ are defined at +node.O_CREAT+.
++posix.open(path, flags, mode)+::
+  See open(2). The constants like +O_CREAT+ are defined at +process.O_CREAT+.
   - on success: +fd+ is given as the parameter.
   - on error: no parameters.
 
 
-+node.fs.write(fd, data, position, encoding)+::
++posix.write(fd, data, position, encoding)+::
   Write data to the file specified by +fd+.  +position+ refers to the offset
   from the beginning of the file where this data should be written. If
   +position+ is +null+, the data will be written at the current position.
@@ -568,7 +609,7 @@ node.fs.stat("/tmp/world").addCallback(function (stats) {
   - on error: no parameters.
 
 
-+node.fs.read(fd, length, position, encoding)+::
++posix.read(fd, length, position, encoding)+::
 
 Read data from the file specified by +fd+.
 +
@@ -581,12 +622,12 @@ reading from in the file.
 - on success: returns +data, bytes_read+, what was read from the file.
 - on error: no parameters.
 
-+node.fs.cat(filename, encoding="utf8")+::
++posix.cat(filename, encoding="utf8")+::
 
 Outputs the entire contents of a file. Example:
 +
 --------------------------------
-node.fs.cat("/etc/passwd").addCallback(function (content) {
+posix.cat("/etc/passwd").addCallback(function (content) {
   puts(content);
 });
 --------------------------------
@@ -594,9 +635,9 @@ node.fs.cat("/etc/passwd").addCallback(function (content) {
 - on success: returns +data+, what was read from the file.
 - on error: no parameters.
 
-==== +node.fs.Stats+
+==== +posix.Stats+
 
-Objects returned from +node.fs.stat()+ are of this type.
+Objects returned from +posix.stat()+ are of this type.
 
 +stats.isFile()+::
 
@@ -614,7 +655,7 @@ Objects returned from +node.fs.stat()+ are of this type.
 
 === HTTP
 
-To use the HTTP server and client one must +require("/http.js")+.
+To use the HTTP server and client one must +require("http")+.
 
 The HTTP interfaces in Node are designed to support many features
 of the protocol which have been traditionally difficult to use.
@@ -632,7 +673,7 @@ HTTP message headers are represented by an object like this
 }
 ----------------------------------------
 
-In order to support the full spectrum of possible HTTP applications, Node's
+In order to support the full spectrum of possible HTTP applications, Node"s
 HTTP API is very low-level. It deals with connection handling and message
 parsing only. It parses a message into headers and body but it does not
 parse the actual headers or the body. 
@@ -979,13 +1020,13 @@ After emitted no other events will be emitted on the response.
 === Multipart Parsing
 
 A library to parse HTTP requests with +multipart/form-data+ is included with
-Node.  To use it, +require("/multipart.js")+.
+Node.  To use it, +require("multipart")+.
 
 +multipart.parse(options)+ ::
   - on success: Returns an object where each key holds the value of one part of
                 the stream. +options+ can either be an instance of
-                +http.ServerRequest+ or an object containing a 'boundary' and a
-                'data' key.
+                +http.ServerRequest+ or an object containing a "boundary" and a
+                "data" key.
   - on error: no parameters.
 
 ==== +multipart.Stream+
@@ -993,24 +1034,24 @@ Node.  To use it, +require("/multipart.js")+.
 Here is an example for parsing a +multipart/form-data+ request:
 
 ----------------------------------------
-var multipart = require('/multipart.js');
+var multipart = require("multipart");
 var stream = new multipart.Stream(options);
 var parts = {};
 
-stream.addListener('part', function (part) {
-  var name = part.headers['Content-Disposition'].name;
-  var buffer = '';
+stream.addListener("part", function (part) {
+  var name = part.headers["Content-Disposition"].name;
+  var buffer = "";
 
-  part.addListener('body', function(chunk) {
+  part.addListener("body", function(chunk) {
     buffer = buffer + chunk;
   });
 
-  part.addListener('complete', function() {
+  part.addListener("complete", function() {
     parts[name] = buffer;
   });
 });
 
-stream.addListener('complete', function() {
+stream.addListener("complete", function() {
   // The parts object now contains all parts and data
 });
 ----------------------------------------
@@ -1036,7 +1077,7 @@ stream.addListener('complete', function() {
 
 === TCP
 
-To use the TCP server and client one must +require("/tcp.js")+.
+To use the TCP server and client one must +require("tcp")+.
 
 ==== +tcp.Server+
 
@@ -1044,7 +1085,7 @@ Here is an example of a echo server which listens for connections
 on port 7000
 
 ----------------------------------------
-var tcp = require("/tcp.js");
+var tcp = require("tcp");
 var server = tcp.createServer(function (socket) {
   socket.setEncoding("utf8");
   socket.addListener("connect", function () {
@@ -1196,13 +1237,17 @@ Disables the Nagle algorithm. By default TCP connections use the Nagle
 algorithm, they buffer data before sending it off. Setting +noDelay+ will
 immediately fire off data each time +connection.send()+ is called.
 
-=== DNS
+=== DNS module
+
+Use +require("dns")+ to access this module
 
 Here is an example of which resolves +"www.google.com"+ then reverse
 resolves the IP addresses which are returned.
 
 -------------------------------------------------------------------------
-var resolution = node.dns.resolve4("www.google.com");
+var dns = require("dns");
+
+var resolution = dns.resolve4("www.google.com");
 
 resolution.addCallback(function (addresses, ttl, cname) {
   puts("addresses: " + JSON.stringify(addresses));
@@ -1211,7 +1256,7 @@ resolution.addCallback(function (addresses, ttl, cname) {
 
   for (var i = 0; i < addresses.length; i++) {
     var a = addresses[i];
-    var reversing = node.dns.reverse(a);
+    var reversing = dns.reverse(a);
     reversing.addCallback( function (domains, ttl, cname) {
       puts("reverse for " + a + ": " + JSON.stringify(domains));
     });
@@ -1227,7 +1272,7 @@ resolution.addErrback(function (code, msg) {
 -------------------------------------------------------------------------
 
 
-+node.dns.resolve4(domain)+::
++dns.resolve4(domain)+::
 
 Resolves a domain (e.g. +"google.com"+) into an array of IPv4 addresses (e.g.
 +["74.125.79.104", "74.125.79.105", "74.125.79.106"]+).
@@ -1238,11 +1283,11 @@ This function returns a promise.
 - on error: returns +code, msg+. +code+ is one of the error codes listed
   below and +msg+ is a string describing the error in English.
 
-+node.dns.resolve6(domain)+::
++dns.resolve6(domain)+::
 
-The same as +node.dns.resolve4()+ except for IPv6 queries (an +AAAA+ query).
+The same as +dns.resolve4()+ except for IPv6 queries (an +AAAA+ query).
 
-+node.dns.reverse(ip)+::
++dns.reverse(ip)+::
 
 Reverse resolves an ip address to an array of domain names.
 
@@ -1255,12 +1300,12 @@ Reverse resolves an ip address to an array of domain names.
 
 Each DNS query can return an error code.
 
-- +node.dns.TEMPFAIL+: timeout, SERVFAIL or similar.
-- +node.dns.PROTOCOL+: got garbled reply.
-- +node.dns.NXDOMAIN+: domain does not exists.
-- +node.dns.NODATA+: domain exists but no data of reqd type.
-- +node.dns.NOMEM+: out of memory while processing.
-- +node.dns.BADQUERY+: the query is malformed.
+- +dns.TEMPFAIL+: timeout, SERVFAIL or similar.
+- +dns.PROTOCOL+: got garbled reply.
+- +dns.NXDOMAIN+: domain does not exists.
+- +dns.NODATA+: domain exists but no data of reqd type.
+- +dns.NOMEM+: out of memory while processing.
+- +dns.BADQUERY+: the query is malformed.
 
 
 
@@ -1282,9 +1327,9 @@ result of the last expression.
 
 The library is called +/repl.js+ and it can be used like this:
 ------------------------------------
-var sys = require("/sys.js"),
-    tcp = require("/tcp.js"),
-   repl = require("/repl.js");
+var sys = require("sys"),
+    tcp = require("tcp"),
+   repl = require("repl");
 nconnections = 0;
 tcp.createServer(function (c) {
   sys.error("Connection!");
@@ -1350,20 +1395,20 @@ This source code needs to be built into +hello.node+, the binary Addon. To
 do this we create a file called +wscript+ which is python code and looks
 like this:
 -----------------------------------------------------
-srcdir = '.'
-blddir = 'build'
-VERSION = '0.0.1'
+srcdir = "."
+blddir = "build"
+VERSION = "0.0.1"
 
 def set_options(opt):
-  opt.tool_options('compiler_cxx')
+  opt.tool_options("compiler_cxx")
 
 def configure(conf):
-  conf.check_tool('compiler_cxx')
-  conf.check_tool('node_addon')
+  conf.check_tool("compiler_cxx")
+  conf.check_tool("node_addon")
 
 def build(bld):
-  obj = bld.new_task_gen('cxx', 'shlib', 'node_addon')
-  obj.target = 'hello'
+  obj = bld.new_task_gen("cxx", "shlib", "node_addon")
+  obj.target = "hello"
   obj.source = "hello.cc"
 -----------------------------------------------------
 Running +node-waf configure build+ will create a file

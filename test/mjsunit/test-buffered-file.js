@@ -1,10 +1,10 @@
-node.mixin(require("common.js"));
+process.mixin(require("./common"));
 
-var testTxt = node.path.join(fixturesDir, "test.txt");
+var testTxt = path.join(fixturesDir, "test.txt");
 
-var libDir = node.path.join(testDir, "../../lib");
+var libDir = path.join(testDir, "../../lib");
 require.paths.unshift(libDir);
-node.mixin(require("/file.js"));
+process.mixin(require("file"));
 
 var fileUnlinked = false;
 
@@ -16,7 +16,7 @@ setTimeout(function () {
   file.write("world\n");
   file.close().addCallback(function () {
     error("file closed...");
-    var out = node.fs.cat(testTxt).wait();
+    var out = posix.cat(testTxt).wait();
     print("the file contains: ");
     p(out);
     assertEquals("hello\nworld\nhello\nworld\n", out);
@@ -24,7 +24,7 @@ setTimeout(function () {
     file2.read(5).addCallback(function (data) {
       puts("read(5): " + JSON.stringify(data));
       assertEquals("hello", data);
-      node.fs.unlink(testTxt).addCallback(function () {
+      posix.unlink(testTxt).addCallback(function () {
         fileUnlinked = true;
       });
     });

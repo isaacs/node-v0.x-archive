@@ -1,8 +1,8 @@
-node.mixin(require("common.js"));
+process.mixin(require("./common"));
 
 var got_error = false;
 
-var promise = node.fs.readdir(fixturesDir);
+var promise = posix.readdir(fixturesDir);
 puts("readdir " + fixturesDir);
 
 promise.addCallback(function (files) {

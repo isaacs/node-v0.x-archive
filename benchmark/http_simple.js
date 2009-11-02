@@ -1,8 +1,8 @@
-libDir = node.path.join(node.path.dirname(__filename), "../lib");
+libDir = process.path.join(process.path.dirname(__filename), "../lib");
 require.paths.unshift(libDir);
 
-node.mixin(require("/utils.js"));
-http = require("/http.js");
+process.mixin(require("sys"));
+http = require("sys");
 
 fixed = ""
 for (var i = 0; i < 20*1024; i++) {

@@ -11,7 +11,7 @@
  *     prototype
  * @param {function} superCtor Constructor function to inherit prototype from
  */
-node.inherits = function (ctor, superCtor) {
+process.inherits = function (ctor, superCtor) {
   var tempCtor = function(){};
   tempCtor.prototype = superCtor.prototype;
   ctor.super_ = superCtor.prototype;
@@ -19,72 +19,19 @@ node.inherits = function (ctor, superCtor) {
   ctor.prototype.constructor = ctor;
 };
 
-node.assert = function (x, msg) {
+process.assert = function (x, msg) {
   if (!(x)) throw new Error(msg || "assertion error");
 };
 
-node.cat = function(location, encoding) {
+process.cat = function(location, encoding) {
   var url_re = new RegExp("^http:\/\/");
   if (url_re.exec(location)) {
-    throw new Error("node.cat for http urls is temporarally disabled.");
+    throw new Error("process.cat for http urls is temporarally disabled.");
   }
-  //var f = url_re.exec(location) ? node.http.cat : node.fs.cat;
+  //var f = url_re.exec(location) ? process.http.cat : process.fs.cat;
   //return f(location, encoding);
-  return node.fs.cat(location, encoding);
-};
-
-node.path = new function () {
-  this.join = function () {
-    var joined = "";
-    for (var i = 0; i < arguments.length; i++) {
-      var part = arguments[i].toString();
-
-      /* Some logic to shorten paths */
-      if (part === ".") continue;
-      while (/^\.\//.exec(part)) part = part.replace(/^\.\//, "");
-
-      if (i === 0) {
-        part = part.replace(/\/*$/, "/");
-      } else if (i === arguments.length - 1) {
-        part = part.replace(/^\/*/, "");
-      } else {
-        part = part.replace(/^\/*/, "").replace(/\/*$/, "/");
-      }
-      joined += part;
-    }
-    return joined;
-  };
-
-  this.dirname = function (path) {
-    if (path.charAt(0) !== "/") path = "./" + path;
-    var parts = path.split("/");
-    return parts.slice(0, parts.length-1).join("/");
-  };
-
-  this.filename = function (path) {
-    if (path.charAt(0) !== "/") path = "./" + path;
-    var parts = path.split("/");
-    return parts[parts.length-1];
-  };
+  return process.fs.cat(location, encoding);
 };
 
 
-puts = function () {
-  throw new Error("puts() has moved. Use require('/sys.js') to bring it back.");
-}
 
-print = function () {
-  throw new Error("print() has moved. Use require('/sys.js') to bring it back.");
-}
-
-p = function () {
-  throw new Error("p() has moved. Use require('/sys.js') to bring it back.");
-}
-
-node.debug = function () {
-  throw new Error("node.debug() has moved. Use require('/sys.js') to bring it back.");
-}
-
-node.error = function () {
-  throw new Error("node.error() has moved. Use require('/sys.js') to bring it back.");
-}

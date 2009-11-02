@@ -1,9 +1,9 @@
-node.mixin(require("common.js"));
+process.mixin(require("./common"));
 
-tcp = require("/tcp.js");
-sys = require("/sys.js");
+tcp = require("tcp");
+sys = require("sys");
 PORT = 23123;
-var x = node.path.join(fixturesDir, "x.txt");
+var x = path.join(fixturesDir, "x.txt");
 var expected = "xyz";
 
 var server = tcp.createServer(function (socket) {
@@ -19,8 +19,8 @@ server.listen(PORT);
 
 var client = tcp.createConnection(PORT);
 client.addListener("connect", function () {
-  node.fs.open(x,node.O_RDONLY, 0666).addCallback(function (fd) {
-    node.fs.sendfile(client.fd, fd, 0, expected.length).addCallback(function (size) {
+  posix.open(x,process.O_RDONLY, 0666).addCallback(function (fd) {
+    posix.sendfile(client.fd, fd, 0, expected.length).addCallback(function (size) {
       assertEquals(expected.length, size);
     });
   });
