@@ -11,7 +11,7 @@ Features:
 
   * No dependencies
   * Parses both requests and responses.
-  * Handles keep-alive streams.
+  * Handles persistent streams.
   * Decodes chunked encoding.
   * Extracts the following data from a message
     * header fields and values
@@ -32,14 +32,15 @@ using `http_parser_init()` and set the callbacks. That might look something
 like this:
 
     http_parser *parser = malloc(sizeof(http_parser));
-    http_parser_init(parser, HTTP_REQUEST);
+    http_parser_init(parser);
     parser->on_path = my_path_callback;
     parser->on_header_field = my_header_field_callback;
+    /* ... */
     parser->data = my_socket;
 
 When data is received on the socket execute the parser and check for errors.
 
-    size_t len = 80*1024;
+    size_t len = 80*1024, nparsed;
     char buf[len];
     ssize_t recved;
 
@@ -50,19 +51,19 @@ When data is received on the socket execute the parser and check for errors.
     }
 
     /* Start up / continue the parser.
-     * Note we pass the recved==0 to http_parser_execute to signal
+     * Note we pass the recved==0 to http_parse_requests to signal
      * that EOF has been recieved.
      */
-    http_parser_execute(parser, buf, recved);
+    nparsed = http_parse_requests(parser, buf, recved);
 
-    if (http_parser_has_error(parser)) {
+    if (nparsed != recved) {
       /* Handle error. Usually just close the connection. */
     }
 
 HTTP needs to know where the end of the stream is. For example, sometimes
 servers send responses without Content-Length and expect the client to
 consume input (for the body) until EOF. To tell http_parser about EOF, give
-`0` as the third parameter to `http_parser_execute()`. Callbacks and errors
+`0` as the third parameter to `http_parse_requests()`. Callbacks and errors
 can still be encountered during an EOF, so one must still be prepared
 to receive them.
 
@@ -84,7 +85,7 @@ parser, for example, would not want such a feature.
 Callbacks
 ---------
 
-During the `http_parser_execute()` call, the callbacks set in `http_parser`
+During the `http_parse_requests()` call, the callbacks set in `http_parser`
 will be executed. The parser maintains state and never looks behind, so
 buffering the data is not necessary. If you need to save certain data for
 later usage, you can do that from the callbacks.
@@ -107,7 +108,7 @@ Reading headers may be a tricky task if you read/parse headers partially.
 Basically, you need to remember whether last header callback was field or value
 and apply following logic:
 
-    /* on_header_field and on_header_value shortened to on_h_*
+    (on_header_field and on_header_value shortened to on_h_*)
      ------------------------ ------------ --------------------------------------------
     | State (prev. callback) | Callback   | Description/action                         |
      ------------------------ ------------ --------------------------------------------
@@ -127,26 +128,9 @@ and apply following logic:
     | value                  | on_h_value | Value continues. Reallocate value buffer   |
     |                        |            | and append callback data to it             |
      ------------------------ ------------ --------------------------------------------
-    */
 
 See examples of reading in headers:
 
 * [partial example](http://gist.github.com/155877) in C
 * [from http-parser tests](http://github.com/ry/http-parser/blob/37a0ff8928fb0d83cec0d0d8909c5a4abcd221af/test.c#L403) in C
 * [from Node library](http://github.com/ry/node/blob/842eaf446d2fdcb33b296c67c911c32a0dabc747/src/http.js#L284) in Javascript
-
-Releases
---------
-
-  * [0.2](http://s3.amazonaws.com/four.livejournal/20090807/http_parser-0.2.tar.gz)
-
-  * [0.1](http://s3.amazonaws.com/four.livejournal/20090427/http_parser-0.1.tar.gz)
-
-The source repo is at [github](http://github.com/ry/http-parser).
-
-Bindings
---------
-
-  * [Ruby](http://github.com/yakischloba/http-parser-ffi)
-
-  * [Lua](http://github.com/phoenixsol/lua-http-parser)

@@ -114,6 +114,8 @@ DEFINE_bool(enable_rdtsc, true,
             "enable use of RDTSC instruction if available")
 DEFINE_bool(enable_sahf, true,
             "enable use of SAHF instruction if available (X64 only)")
+DEFINE_bool(enable_vfp3, true,
+            "enable use of VFP3 instructions if available (ARM only)")
 
 // bootstrapper.cc
 DEFINE_string(expose_natives_as, NULL, "expose natives in global object")
@@ -141,7 +143,7 @@ DEFINE_bool(debug_info, true, "add debug information to compiled functions")
 DEFINE_bool(strict, false, "strict error checking")
 DEFINE_int(min_preparse_length, 1024,
            "minimum length for automatic enable preparsing")
-DEFINE_bool(fast_compiler, true,
+DEFINE_bool(fast_compiler, false,
             "use the fast-mode compiler for some top-level code")
 DEFINE_bool(trace_bailout, false,
             "print reasons for failing to use fast compilation")
@@ -196,6 +198,7 @@ DEFINE_bool(canonicalize_object_literal_maps, true,
 
 // mksnapshot.cc
 DEFINE_bool(h, false, "print this message")
+DEFINE_bool(new_snapshot, true, "use new snapshot implementation")
 
 // parser.cc
 DEFINE_bool(allow_natives_syntax, false, "allow natives syntax")

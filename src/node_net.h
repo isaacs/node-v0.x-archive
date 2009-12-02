@@ -7,6 +7,12 @@
 #include <v8.h>
 #include <evcom.h>
 
+#if EVCOM_HAVE_GNUTLS
+#include <gnutls/gnutls.h>
+#include <gnutls/x509.h>
+#endif
+
+
 namespace node {
 
 class Server;
@@ -34,6 +40,12 @@ class Connection : public EventEmitter {
       const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> FDGetter(v8::Local<v8::String> _,
       const v8::AccessorInfo& info);
+
+  #if EVCOM_HAVE_GNUTLS
+  static v8::Handle<v8::Value> SetSecure(const v8::Arguments& args);
+  static v8::Handle<v8::Value> VerifyPeer(const v8::Arguments& args);
+  static v8::Handle<v8::Value> GetPeerCertificate(const v8::Arguments& args);
+  #endif
 
   Connection() : EventEmitter() {
     encoding_ = BINARY;
@@ -82,6 +94,7 @@ class Connection : public EventEmitter {
   virtual void OnEOF();
   virtual void OnClose();
   virtual void OnTimeout();
+  virtual void OnDrain();
 
   v8::Local<v8::Object> GetProtocol();
 
@@ -91,6 +104,10 @@ class Connection : public EventEmitter {
 
   enum encoding encoding_;
   bool resolving_;
+  bool secure_;
+  #if EVCOM_HAVE_GNUTLS
+  gnutls_certificate_credentials_t credentials;
+  #endif
 
  private:
 
@@ -117,6 +134,19 @@ class Connection : public EventEmitter {
     assert(connection->stream_.recvfd < 0);
     assert(connection->stream_.sendfd < 0);
 
+    #if EVCOM_HAVE_GNUTLS
+    if (connection->secure_) {
+      if (connection->stream_.session) {
+        gnutls_deinit(connection->stream_.session);
+        connection->stream_.session = NULL;
+      }
+      if (!connection->stream_.server && connection->credentials) {
+        gnutls_certificate_free_credentials(connection->credentials);
+        connection->credentials = NULL;
+      }
+    }
+    #endif
+
     connection->OnClose();
 
     assert(connection->attached_);
@@ -127,6 +157,11 @@ class Connection : public EventEmitter {
   static void on_timeout(evcom_stream *s) {
     Connection *connection = static_cast<Connection*>(s->data);
     connection->OnTimeout();
+  }
+
+  static void on_drain(evcom_stream *s) {
+    Connection *connection = static_cast<Connection*>(s->data);
+    connection->OnDrain();
   }
 
   void Init();  // constructor helper.
@@ -149,12 +184,16 @@ class Server : public EventEmitter {
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
   static v8::Handle<v8::Value> Listen(const v8::Arguments& args);
   static v8::Handle<v8::Value> Close(const v8::Arguments& args);
+  #if EVCOM_HAVE_GNUTLS
+  static v8::Handle<v8::Value> SetSecure(const v8::Arguments& args);
+  #endif
 
   Server() : EventEmitter() {
     evcom_server_init(&server_);
     server_.on_connection = Server::on_connection;
     server_.on_close = Server::on_close;
     server_.data = this;
+    secure_ = false;
   }
 
   virtual ~Server() {
@@ -195,7 +234,50 @@ class Server : public EventEmitter {
   }
 
   evcom_server server_;
+
+  #if EVCOM_HAVE_GNUTLS
+  gnutls_certificate_credentials_t credentials;
+  #endif
+  bool secure_;
 };
 
 }  // namespace node
 #endif  // SRC_NET_H_
+
+#if EVCOM_HAVE_GNUTLS
+void init_tls_session(evcom_stream* stream_,
+                      gnutls_certificate_credentials_t credentials,
+                      gnutls_connection_end_t session_type);
+
+int verify_certificate_chain(gnutls_session_t session,
+                             const char *hostname,
+                             const gnutls_datum_t * cert_chain,
+                             int cert_chain_length,
+                             gnutls_x509_crl_t *crl_list,
+                             int crl_list_size,
+                             gnutls_x509_crt_t *ca_list,
+                             int ca_list_size);
+
+int verify_cert2(gnutls_x509_crt_t crt,
+                 gnutls_x509_crt_t issuer,
+                 gnutls_x509_crl_t * crl_list,
+                 int crl_list_size);
+
+int verify_last_cert(gnutls_x509_crt_t crt,
+                     gnutls_x509_crt_t * ca_list,
+                     int ca_list_size,
+                     gnutls_x509_crl_t * crl_list,
+                     int crl_list_size);
+
+#define JS_GNUTLS_CERT_VALIDATED 1
+#define JS_GNUTLS_CERT_UNDEFINED 0
+
+#define JS_GNUTLS_CERT_SIGNER_NOT_FOUND -100
+#define JS_GNUTLS_CERT_SIGNER_NOT_CA -101
+#define JS_GNUTLS_CERT_INVALID -102
+#define JS_GNUTLS_CERT_NOT_ACTIVATED -103
+#define JS_GNUTLS_CERT_EXPIRED -104
+#define JS_GNUTLS_CERT_REVOKED -105
+#define JS_GNUTLS_CERT_DOES_NOT_MATCH_HOSTNAME -106
+
+#endif

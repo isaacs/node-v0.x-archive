@@ -1,4 +1,101 @@
-2009.10.28, Version 0.1.15
+2009.11.28, Version 0.1.20
+
+  * Add gnutls version to configure script
+
+  * Add V8 heap info to process.memoryUsage()
+
+  * process.watchFile callback has 2 arguments with the stat object
+    (choonkeat@gmail.com)
+
+
+2009.11.28, Version 0.1.19, 633d6be328708055897b72327b88ac88e158935f
+
+  * Feature: Initial TLS support for TCP servers and clients.
+    (Rhys Jones)
+
+  * Add options to process.watchFile()
+
+  * Add process.umask() (Friedemann Altrock)
+
+  * Bugfix: only detach timers when active.
+
+  * Bugfix: lib/file.js write(), shouldn't always emit errors or success
+    (onne@onnlucky.com)
+
+  * Bugfix: Memory leak in fs.write
+    (Reported by onne@onnlucky.com)
+
+  * Bugfix: Fix regular expressions detecting outgoing message headers.
+    (Reported by Elliott Cable)
+
+  * Improvements to Multipart parser (Felix Geisendörfer)
+
+  * New HTTP parser
+
+  * Upgrade v8 to 2.0.2
+
+
+2009.11.17, Version 0.1.18, 027829d2853a14490e6de9fc5f7094652d045ab8
+
+  * Feature: process.watchFile() process.unwatchFile()
+
+  * Feature: "uncaughtException" event on process
+    (Felix Geisendörfer)
+
+  * Feature: 'drain' event to tcp.Connection
+
+  * Bugfix: Promise.timeout() blocked the event loop
+    (Felix Geisendörfer)
+
+  * Bugfix: sendBody() and chunked utf8 strings
+    (Felix Geisendörfer)
+
+  * Supply the strerror as a second arg to the tcp.Connection close
+    event (Johan Sørensen)
+
+  * Add EventEmitter.removeListener (frodenius@gmail.com)
+
+  * Format JSON for inspecting objects (Felix Geisendörfer)
+
+  * Upgrade libev to latest CVS
+
+
+2009.11.07, Version 0.1.17, d1f69ef35dac810530df8249d523add168e09f03
+
+  * Feature: process.chdir() (Brandon Beacher)
+
+  * Revert http parser upgrade. (b893859c34f05db5c45f416949ebc0eee665cca6)
+    Broke keep-alive.
+
+  * API: rename process.inherits to sys.inherits
+
+
+2009.11.03, Version 0.1.16, 726865af7bbafe58435986f4a193ff11c84e4bfe
+
+  * API: Use CommonJS-style module requiring
+    - require("/sys.js") becomes require("sys")
+    - require("circle.js") becomes require("./circle")
+    - process.path.join() becomes require("path").join()
+    - __module becomes module
+
+  * API: Many namespacing changes
+    - Move node.* into process.* 
+    - Move node.dns into module "dns"
+    - Move node.fs into module "posix"
+    - process is no longer the global object. GLOBAL is.
+
+  For more information on the API changes see: 
+    http://thread.gmane.org/gmane.comp.lang.javascript.nodejs/6
+    http://thread.gmane.org/gmane.comp.lang.javascript.nodejs/14
+
+  * Feature: process.platform, process.memoryUsage()
+
+  * Feature: promise.cancel() (Felix Geisendörfer)
+
+  * Upgrade V8 to 1.3.18
+
+
+2009.10.28, Version 0.1.15, eca2de73ed786b935507fd1c6faccd8df9938fd3
 
   * Many build system fixes (esp. for OSX users)
 
@@ -16,6 +113,7 @@
   * Upgrade http_parser
 
   * Upgrade v8 to 1.3.16
+
 
 2009.10.09, Version 0.1.14, b12c809bb84d1265b6a4d970a5b54ee8a4890513
 

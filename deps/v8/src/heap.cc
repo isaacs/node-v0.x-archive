@@ -733,10 +733,7 @@ void Heap::Scavenge() {
 
   ScavengeVisitor scavenge_visitor;
   // Copy roots.
-  IterateRoots(&scavenge_visitor);
-
-  // Copy objects reachable from weak pointers.
-  GlobalHandles::IterateWeakRoots(&scavenge_visitor);
+  IterateRoots(&scavenge_visitor, VISIT_ALL);
 
   // Copy objects reachable from the old generation.  By definition,
   // there are no intergenerational pointers in code or data spaces.
@@ -1730,6 +1727,7 @@ Object* Heap::AllocateProxy(Address proxy, PretenureFlag pretenure) {
   // Statically ensure that it is safe to allocate proxies in paged spaces.
   STATIC_ASSERT(Proxy::kSize <= Page::kMaxHeapObjectSize);
   AllocationSpace space = (pretenure == TENURED) ? OLD_DATA_SPACE : NEW_SPACE;
+  if (always_allocate()) space = OLD_DATA_SPACE;
   Object* result = Allocate(proxy_map(), space);
   if (result->IsFailure()) return result;
 
@@ -1764,14 +1762,63 @@ Object* Heap::AllocateSharedFunctionInfo(Object* name) {
 }
 
 
+// Returns true for a character in a range.  Both limits are inclusive.
+static inline bool Between(uint32_t character, uint32_t from, uint32_t to) {
+  // This makes uses of the the unsigned wraparound.
+  return character - from <= to - from;
+}
+
+
+static inline Object* MakeOrFindTwoCharacterString(uint32_t c1, uint32_t c2) {
+  String* symbol;
+  // Numeric strings have a different hash algorithm not known by
+  // LookupTwoCharsSymbolIfExists, so we skip this step for such strings.
+  if ((!Between(c1, '0', '9') || !Between(c2, '0', '9')) &&
+      Heap::symbol_table()->LookupTwoCharsSymbolIfExists(c1, c2, &symbol)) {
+    return symbol;
+  // Now we know the length is 2, we might as well make use of that fact
+  // when building the new string.
+  } else if ((c1 | c2) <= String::kMaxAsciiCharCodeU) {  // We can do this
+    ASSERT(IsPowerOf2(String::kMaxAsciiCharCodeU + 1));  // because of this.
+    Object* result = Heap::AllocateRawAsciiString(2);
+    if (result->IsFailure()) return result;
+    char* dest = SeqAsciiString::cast(result)->GetChars();
+    dest[0] = c1;
+    dest[1] = c2;
+    return result;
+  } else {
+    Object* result = Heap::AllocateRawTwoByteString(2);
+    if (result->IsFailure()) return result;
+    uc16* dest = SeqTwoByteString::cast(result)->GetChars();
+    dest[0] = c1;
+    dest[1] = c2;
+    return result;
+  }
+}
+
+
 Object* Heap::AllocateConsString(String* first, String* second) {
   int first_length = first->length();
-  if (first_length == 0) return second;
+  if (first_length == 0) {
+    return second;
+  }
 
   int second_length = second->length();
-  if (second_length == 0) return first;
+  if (second_length == 0) {
+    return first;
+  }
 
   int length = first_length + second_length;
+
+  // Optimization for 2-byte strings often used as keys in a decompression
+  // dictionary.  Check whether we already have the string in the symbol
+  // table to prevent creation of many unneccesary strings.
+  if (length == 2) {
+    unsigned c1 = first->Get(0);
+    unsigned c2 = second->Get(0);
+    return MakeOrFindTwoCharacterString(c1, c2);
+  }
+
   bool is_ascii = first->IsAsciiRepresentation()
       && second->IsAsciiRepresentation();
 
@@ -1821,50 +1868,14 @@ Object* Heap::AllocateConsString(String* first, String* second) {
       : long_cons_string_map();
   }
 
-  Object* result = Allocate(map, NEW_SPACE);
+  Object* result = Allocate(map,
+                            always_allocate() ? OLD_POINTER_SPACE : NEW_SPACE);
   if (result->IsFailure()) return result;
-  ASSERT(InNewSpace(result));
   ConsString* cons_string = ConsString::cast(result);
-  cons_string->set_first(first, SKIP_WRITE_BARRIER);
-  cons_string->set_second(second, SKIP_WRITE_BARRIER);
+  WriteBarrierMode mode = cons_string->GetWriteBarrierMode();
+  cons_string->set_first(first, mode);
+  cons_string->set_second(second, mode);
   cons_string->set_length(length);
-  return result;
-}
-
-
-Object* Heap::AllocateSlicedString(String* buffer,
-                                   int start,
-                                   int end) {
-  int length = end - start;
-
-  // If the resulting string is small make a sub string.
-  if (length <= String::kMinNonFlatLength) {
-    return Heap::AllocateSubString(buffer, start, end);
-  }
-
-  Map* map;
-  if (length <= String::kMaxShortSize) {
-    map = buffer->IsAsciiRepresentation() ?
-      short_sliced_ascii_string_map() :
-      short_sliced_string_map();
-  } else if (length <= String::kMaxMediumSize) {
-    map = buffer->IsAsciiRepresentation() ?
-      medium_sliced_ascii_string_map() :
-      medium_sliced_string_map();
-  } else {
-    map = buffer->IsAsciiRepresentation() ?
-      long_sliced_ascii_string_map() :
-      long_sliced_string_map();
-  }
-
-  Object* result = Allocate(map, NEW_SPACE);
-  if (result->IsFailure()) return result;
-
-  SlicedString* sliced_string = SlicedString::cast(result);
-  sliced_string->set_buffer(buffer);
-  sliced_string->set_start(start);
-  sliced_string->set_length(length);
-
   return result;
 }
 
@@ -1877,6 +1888,13 @@ Object* Heap::AllocateSubString(String* buffer,
   if (length == 1) {
     return Heap::LookupSingleCharacterStringFromCode(
         buffer->Get(start));
+  } else if (length == 2) {
+    // Optimization for 2-byte strings often used as keys in a decompression
+    // dictionary.  Check whether we already have the string in the symbol
+    // table to prevent creation of many unneccesary strings.
+    unsigned c1 = buffer->Get(start);
+    unsigned c2 = buffer->Get(start + 1);
+    return MakeOrFindTwoCharacterString(c1, c2);
   }
 
   // Make an attempt to flatten the buffer to reduce access time.
@@ -1888,22 +1906,19 @@ Object* Heap::AllocateSubString(String* buffer,
       ? AllocateRawAsciiString(length)
       : AllocateRawTwoByteString(length);
   if (result->IsFailure()) return result;
+  String* string_result = String::cast(result);
 
   // Copy the characters into the new object.
-  String* string_result = String::cast(result);
-  StringHasher hasher(length);
-  int i = 0;
-  for (; i < length && hasher.is_array_index(); i++) {
-    uc32 c = buffer->Get(start + i);
-    hasher.AddCharacter(c);
-    string_result->Set(i, c);
+  if (buffer->IsAsciiRepresentation()) {
+    ASSERT(string_result->IsAsciiRepresentation());
+    char* dest = SeqAsciiString::cast(string_result)->GetChars();
+    String::WriteToFlat(buffer, dest, start, end);
+  } else {
+    ASSERT(string_result->IsTwoByteRepresentation());
+    uc16* dest = SeqTwoByteString::cast(string_result)->GetChars();
+    String::WriteToFlat(buffer, dest, start, end);
   }
-  for (; i < length; i++) {
-    uc32 c = buffer->Get(start + i);
-    hasher.AddCharacterNoIndex(c);
-    string_result->Set(i, c);
-  }
-  string_result->set_length_field(hasher.GetHashField());
+
   return result;
 }
 
@@ -1911,20 +1926,24 @@ Object* Heap::AllocateSubString(String* buffer,
 Object* Heap::AllocateExternalStringFromAscii(
     ExternalAsciiString::Resource* resource) {
   Map* map;
-  int length = resource->length();
-  if (length <= String::kMaxShortSize) {
+  size_t length = resource->length();
+  if (length <= static_cast<size_t>(String::kMaxShortSize)) {
     map = short_external_ascii_string_map();
-  } else if (length <= String::kMaxMediumSize) {
+  } else if (length <= static_cast<size_t>(String::kMaxMediumSize)) {
     map = medium_external_ascii_string_map();
-  } else {
+  } else if (length <= static_cast<size_t>(String::kMaxLength)) {
     map = long_external_ascii_string_map();
+  } else {
+    Top::context()->mark_out_of_memory();
+    return Failure::OutOfMemoryException();
   }
 
-  Object* result = Allocate(map, NEW_SPACE);
+  Object* result = Allocate(map,
+                            always_allocate() ? OLD_DATA_SPACE : NEW_SPACE);
   if (result->IsFailure()) return result;
 
   ExternalAsciiString* external_string = ExternalAsciiString::cast(result);
-  external_string->set_length(length);
+  external_string->set_length(static_cast<int>(length));
   external_string->set_resource(resource);
 
   return result;
@@ -1933,14 +1952,18 @@ Object* Heap::AllocateExternalStringFromAscii(
 
 Object* Heap::AllocateExternalStringFromTwoByte(
     ExternalTwoByteString::Resource* resource) {
-  int length = resource->length();
-
-  Map* map = ExternalTwoByteString::StringMap(length);
-  Object* result = Allocate(map, NEW_SPACE);
+  size_t length = resource->length();
+  if (length > static_cast<size_t>(String::kMaxLength)) {
+    Top::context()->mark_out_of_memory();
+    return Failure::OutOfMemoryException();
+  }
+  Map* map = ExternalTwoByteString::StringMap(static_cast<int>(length));
+  Object* result = Allocate(map,
+                            always_allocate() ? OLD_DATA_SPACE : NEW_SPACE);
   if (result->IsFailure()) return result;
 
   ExternalTwoByteString* external_string = ExternalTwoByteString::cast(result);
-  external_string->set_length(length);
+  external_string->set_length(static_cast<int>(length));
   external_string->set_resource(resource);
 
   return result;
@@ -2321,6 +2344,7 @@ Object* Heap::AllocateJSObjectFromMap(Map* map, PretenureFlag pretenure) {
   AllocationSpace space =
       (pretenure == TENURED) ? OLD_POINTER_SPACE : NEW_SPACE;
   if (map->instance_size() > MaxObjectSizeInPagedSpace()) space = LO_SPACE;
+  if (always_allocate()) space = OLD_POINTER_SPACE;
   Object* obj = Allocate(map, space);
   if (obj->IsFailure()) return obj;
 
@@ -2601,20 +2625,6 @@ Map* Heap::SymbolMapForString(String* string) {
   }
   if (map == long_cons_ascii_string_map()) {
     return long_cons_ascii_symbol_map();
-  }
-
-  if (map == short_sliced_string_map()) return short_sliced_symbol_map();
-  if (map == medium_sliced_string_map()) return medium_sliced_symbol_map();
-  if (map == long_sliced_string_map()) return long_sliced_symbol_map();
-
-  if (map == short_sliced_ascii_string_map()) {
-    return short_sliced_ascii_symbol_map();
-  }
-  if (map == medium_sliced_ascii_string_map()) {
-    return medium_sliced_ascii_symbol_map();
-  }
-  if (map == long_sliced_ascii_string_map()) {
-    return long_sliced_ascii_symbol_map();
   }
 
   if (map == short_external_string_map()) {
@@ -3117,7 +3127,7 @@ void Heap::Verify() {
   ASSERT(HasBeenSetup());
 
   VerifyPointersVisitor visitor;
-  IterateRoots(&visitor);
+  IterateRoots(&visitor, VISIT_ONLY_STRONG);
 
   new_space_.Verify();
 
@@ -3244,14 +3254,14 @@ void Heap::IterateRSet(PagedSpace* space, ObjectSlotCallback copy_object_func) {
 }
 
 
-void Heap::IterateRoots(ObjectVisitor* v) {
-  IterateStrongRoots(v);
+void Heap::IterateRoots(ObjectVisitor* v, VisitMode mode) {
+  IterateStrongRoots(v, mode);
   v->VisitPointer(reinterpret_cast<Object**>(&roots_[kSymbolTableRootIndex]));
   v->Synchronize("symbol_table");
 }
 
 
-void Heap::IterateStrongRoots(ObjectVisitor* v) {
+void Heap::IterateStrongRoots(ObjectVisitor* v, VisitMode mode) {
   v->VisitPointers(&roots_[0], &roots_[kStrongRootListLength]);
   v->Synchronize("strong_root_list");
 
@@ -3284,7 +3294,11 @@ void Heap::IterateStrongRoots(ObjectVisitor* v) {
   v->Synchronize("builtins");
 
   // Iterate over global handles.
-  GlobalHandles::IterateRoots(v);
+  if (mode == VISIT_ONLY_STRONG) {
+    GlobalHandles::IterateStrongRoots(v);
+  } else {
+    GlobalHandles::IterateAllRoots(v);
+  }
   v->Synchronize("globalhandles");
 
   // Iterate over pointers being held by inactive threads.
@@ -3455,14 +3469,18 @@ bool Heap::Setup(bool create_heap_objects) {
 }
 
 
-void Heap::SetStackLimit(intptr_t limit) {
+void Heap::SetStackLimits() {
   // On 64 bit machines, pointers are generally out of range of Smis.  We write
   // something that looks like an out of range Smi to the GC.
 
-  // Set up the special root array entry containing the stack guard.
-  // This is actually an address, but the tag makes the GC ignore it.
+  // Set up the special root array entries containing the stack limits.
+  // These are actually addresses, but the tag makes the GC ignore it.
   roots_[kStackLimitRootIndex] =
-    reinterpret_cast<Object*>((limit & ~kSmiTagMask) | kSmiTag);
+      reinterpret_cast<Object*>(
+          (StackGuard::jslimit() & ~kSmiTagMask) | kSmiTag);
+  roots_[kRealStackLimitRootIndex] =
+      reinterpret_cast<Object*>(
+          (StackGuard::real_jslimit() & ~kSmiTagMask) | kSmiTag);
 }
 
 
@@ -3889,7 +3907,7 @@ void Heap::TracePathToObject() {
   search_for_any_global = false;
 
   MarkRootVisitor root_visitor;
-  IterateRoots(&root_visitor);
+  IterateRoots(&root_visitor, VISIT_ONLY_STRONG);
 }
 
 
@@ -3901,7 +3919,7 @@ void Heap::TracePathToGlobal() {
   search_for_any_global = true;
 
   MarkRootVisitor root_visitor;
-  IterateRoots(&root_visitor);
+  IterateRoots(&root_visitor, VISIT_ONLY_STRONG);
 }
 #endif
 

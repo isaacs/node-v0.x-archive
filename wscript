@@ -7,7 +7,7 @@ from os.path import join, dirname, abspath
 from logging import fatal
 
 cwd = os.getcwd()
-VERSION="0.1.15"
+VERSION="0.1.20"
 APPNAME="node.js"
 
 import js2c
@@ -119,14 +119,21 @@ def configure(conf):
     if sys.platform.startswith("freebsd"):
       fatal("Install the libexecinfo port from /usr/ports/devel/libexecinfo.")
 
+  if conf.check_cfg(package='gnutls',
+                    args='--cflags --libs',
+                    atleast_version='2.5.0',
+                    #libpath=['/usr/lib', '/usr/local/lib'],
+                    uselib_store='GNUTLS'):
+    if conf.check(lib='gpg-error',
+                  #libpath=['/usr/lib', '/usr/local/lib'],
+                  uselib_store='GPGERROR'):
+      conf.env.append_value("CCFLAGS", "-DEVCOM_HAVE_GNUTLS=1")
+      conf.env.append_value("CXXFLAGS", "-DEVCOM_HAVE_GNUTLS=1")
+
   conf.sub_config('deps/libeio')
   conf.sub_config('deps/libev')
 
   conf_subproject(conf, 'deps/udns', './configure')
-
-  # Not using TLS yet
-  # if conf.check_cfg(package='gnutls', args='--cflags --libs', uselib_store="GNUTLS"):
-  #   conf.define("HAVE_GNUTLS", 1)
 
   conf.define("HAVE_CONFIG_H", 1)
 
@@ -137,6 +144,11 @@ def configure(conf):
   conf.env.append_value('CXXFLAGS', '-D_LARGEFILE_SOURCE')
   conf.env.append_value('CCFLAGS',  '-D_FILE_OFFSET_BITS=64')
   conf.env.append_value('CXXFLAGS', '-D_FILE_OFFSET_BITS=64')
+
+  # platform
+  platform_def = '-DPLATFORM=' + sys.platform
+  conf.env.append_value('CCFLAGS', platform_def)
+  conf.env.append_value('CXXFLAGS', platform_def)
 
   # Split off debug variant before adding variant specific defines
   debug_env = conf.env.copy()
@@ -253,7 +265,7 @@ def build(bld):
   evcom.includes = "deps/evcom/ deps/libev/"
   evcom.name = "evcom"
   evcom.target = "evcom"
-  # evcom.uselib = "GNUTLS"
+  evcom.uselib = "GPGERROR GNUTLS"
   evcom.install_path = None
   if bld.env["USE_DEBUG"]:
     evcom.clone("debug")
@@ -287,12 +299,7 @@ def build(bld):
     js2c.JS2C(source, targets)
 
   native_cc = bld.new_task_gen(
-    source = """
-      src/util.js
-      src/events.js
-      src/file.js
-      src/node.js
-    """,
+    source='src/node.js',
     target="src/node_natives.h",
     before="cxx"
   )
@@ -321,6 +328,7 @@ def build(bld):
     src/node_http.cc
     src/node_net.cc
     src/node_signal_handler.cc
+    src/node_stat.cc
     src/node_stdio.cc
     src/node_timer.cc
   """
@@ -336,7 +344,8 @@ def build(bld):
   """
   node.add_objects = 'ev eio evcom http_parser coupling'
   node.uselib_local = ''
-  node.uselib = 'UDNS V8 EXECINFO DL'
+  node.uselib = 'UDNS V8 EXECINFO DL GPGERROR GNUTLS'
+
   node.install_path = '${PREFIX}/lib'
   node.install_path = '${PREFIX}/bin'
   node.chmod = 0755

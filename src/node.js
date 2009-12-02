@@ -66,7 +66,13 @@ node.dns.createConnection = function () {
   throw new Error("node.dns.createConnection() has moved. Use require('dns') to access it.");
 };
 
+node.inherits = function () {
+  throw new Error("node.inherits() has moved. Use require('sys') to access it.");
+};
 
+process.inherits = function () {
+  throw new Error("process.inherits() has moved. Use require('sys') to access it.");
+};
 
 
 process.createChildProcess = function (file, args, env) {
@@ -84,6 +90,44 @@ process.createChildProcess = function (file, args, env) {
   // a '/' character.
   child.spawn(file, args, envPairs);
   return child;
+};
+
+process.fs.cat = function (path, encoding) {
+  var promise = new process.Promise();
+  
+  encoding = encoding || "utf8"; // default to utf8
+
+  process.fs.open(path, process.O_RDONLY, 0666).addCallback(function (fd) {
+    var content = "", pos = 0;
+
+    function readChunk () {
+      process.fs.read(fd, 16*1024, pos, encoding).addCallback(function (chunk, bytes_read) {
+        if (chunk) {
+          if (chunk.constructor === String) {
+            content += chunk;
+          } else {
+            content = content.concat(chunk);
+          }
+
+          pos += bytes_read;
+          readChunk();
+        } else {
+          promise.emitSuccess(content);
+          process.fs.close(fd);
+        }
+      }).addErrback(function () {
+        promise.emitError();
+      });
+    }
+    readChunk();
+  }).addErrback(function () {
+    promise.emitError(new Error("Could not open " + path));
+  });
+  return promise;
+};
+
+process.assert = function (x, msg) {
+  if (!(x)) throw new Error(msg || "assertion error");
 };
 
 // From jQuery.extend in the jQuery JavaScript Library v1.3.2
@@ -141,6 +185,139 @@ process.mixin = function() {
 };
 
 
+// Event
+
+// process.EventEmitter is defined in src/events.cc
+// process.EventEmitter.prototype.emit() is also defined there.
+process.EventEmitter.prototype.addListener = function (type, listener) {
+  if (listener instanceof Function) {
+    if (!this._events) this._events = {};
+    if (!this._events.hasOwnProperty(type)) this._events[type] = [];
+    // To avoid recursion in the case that type == "newListeners"! Before
+    // adding it to the listeners, first emit "newListeners".
+    this.emit("newListener", type, listener);
+    this._events[type].push(listener);
+  }
+  return this;
+};
+
+process.EventEmitter.prototype.removeListener = function (type, listener) {
+  if (listener instanceof Function) {
+    // does not use listeners(), so no side effect of creating _events[type]
+    if (!this._events || !this._events.hasOwnProperty(type)) return;
+    var list = this._events[type];
+    if (list.indexOf(listener) < 0) return;
+    list.splice(list.indexOf(listener), 1);
+  }
+  return this;
+};
+
+process.EventEmitter.prototype.listeners = function (type) {
+  if (!this._events) this._events = {};
+  if (!this._events.hasOwnProperty(type)) this._events[type] = [];
+  return this._events[type];
+};
+
+process.Promise.prototype.timeout = function(timeout) {
+  if (timeout === undefined) {
+    return this._timeoutDuration;
+  }
+
+  this._timeoutDuration = timeout;
+  if (this._timer) {
+    clearTimeout(this._timer);
+    this._timer = null;
+  }
+
+  var promiseComplete = false;
+  var onComplete = function() {
+    promiseComplete = true;
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
+  };
+
+  this
+    .addCallback(onComplete)
+    .addCancelback(onComplete)
+    .addErrback(onComplete);
+
+  var self = this;
+  this._timer = setTimeout(function() {
+    self._timer = null;
+    if (promiseComplete) {
+      return;
+    }
+
+    self.emitError(new Error('timeout'));
+  }, this._timeoutDuration);
+
+  return this;
+};
+
+process.Promise.prototype.cancel = function() {
+  if(this._cancelled) return;
+  this._cancelled = true;
+
+  this._events['success'] = [];
+  this._events['error'] = [];
+
+  this.emitCancel();
+};
+
+process.Promise.prototype.emitCancel = function() {
+  var args = Array.prototype.slice.call(arguments);
+  args.unshift('cancel');
+
+  this.emit.apply(this, args);
+};
+
+process.Promise.prototype.addCallback = function (listener) {
+  this.addListener("success", listener);
+  return this;
+};
+
+process.Promise.prototype.addErrback = function (listener) {
+  this.addListener("error", listener);
+  return this;
+};
+
+process.Promise.prototype.addCancelback = function (listener) {
+  this.addListener("cancel", listener);
+  return this;
+};
+
+process.Promise.prototype.wait = function () {
+  var ret;
+  var had_error = false;
+  this.addCallback(function () {
+        if (arguments.length == 1) {
+          ret = arguments[0];
+        } else if (arguments.length > 1) {
+          ret = [];
+          for (var i = 0; i < arguments.length; i++) {
+            ret.push(arguments[i]);
+          }
+        }
+      })
+      .addErrback(function (arg) {
+        had_error = true;
+        ret = arg;
+      })
+      .block();
+
+  if (had_error) {
+    if (ret) {
+      throw ret;
+    } else {
+      throw new Error("Promise completed with error (No arguments given.)");
+    }
+  }
+  return ret;
+};
+
+
 
 // Signal Handlers
 
@@ -156,6 +333,46 @@ process.addListener("newListener", function (event) {
     });
   }
 });
+
+
+// Stat Change Watchers
+
+var statWatchers = {};
+
+process.watchFile = function (filename) {
+  var stat;
+  var options;
+  var listener;
+
+  if ("object" == typeof arguments[1]) {
+    options = arguments[1];
+    listener = arguments[2];
+  } else {
+    options = {};
+    listener = arguments[1];
+  }
+    
+  if (options.persistent === undefined) options.persistent = true;
+  if (options.interval === undefined) options.interval = 0;
+
+  if (filename in statWatchers) {
+    stat = statWatchers[filename];
+  } else {
+    statWatchers[filename] = new process.Stat();
+    stat = statWatchers[filename];
+    stat.start(filename, options.persistent, options.interval);
+  }
+  stat.addListener("change", listener);
+  return stat;
+};
+
+process.unwatchFile = function (filename) {
+  if (filename in statWatchers) {
+    stat = statWatchers[filename];
+    stat.stop();
+    statWatchers[filename] = undefined;
+  }
+};
 
 
 
@@ -293,7 +510,7 @@ function findModulePath (id, dirs, callback) {
     return;
   }
 
-  if (/.(js|node)$/.exec(id)) {
+  if (/\.(js|node)$/.exec(id)) {
     throw new Error("No longer accepting filename extension in module names");
   }
 
@@ -305,38 +522,34 @@ function findModulePath (id, dirs, callback) {
   var dir = dirs[0];
   var rest = dirs.slice(1, dirs.length);
 
-  var js         = path.join(dir, id + ".js");
-  var addon      = path.join(dir, id + ".node");
-  var indexJs    = path.join(dir, id, "index.js");
-  var indexAddon = path.join(dir, id, "index.addon");
+  if (id.charAt(0) == '/') {
+    dir = '';
+    rest = [];
+  }
 
-  // TODO clean up the following atrocity!
- 
-  path.exists(js, function (found) {
-    if (found) {
-      callback(js);
+  var locations = [
+    path.join(dir, id + ".js"),
+    path.join(dir, id + ".node"),
+    path.join(dir, id, "index.js"),
+    path.join(dir, id, "index.addon"),
+  ];
+
+  var searchLocations = function() {
+    var location = locations.shift();
+    if (location === undefined) {
+      findModulePath(id, rest, callback);
       return;
     }
-    path.exists(addon, function (found) {
+
+    path.exists(location, function (found) {
       if (found) {
-        callback(addon);
+        callback(location);
         return;
       }
-      path.exists(indexJs, function (found) {
-        if (found) {
-          callback(indexJs);
-          return;
-        }
-        path.exists(indexAddon, function (found) {
-          if (found) {
-            callback(indexAddon);
-            return;
-          }
-          findModulePath(id, rest, callback);
-        });
-      });
-    });
-  });
+      searchLocations();
+    })
+  };
+  searchLocations();
 }
 
 function loadModule (request, parent) {
@@ -346,7 +559,7 @@ function loadModule (request, parent) {
   debug("loadModule REQUEST  " + JSON.stringify(request) + " parent: " + JSON.stringify(parent));
 
   var id, paths;
-  if (request.charAt(0) == "." && request.charAt(1) == "/") {
+  if (request.charAt(0) == "." && (request.charAt(1) == "/" || request.charAt(1) == ".")) {
     // Relative request
     id = path.join(path.dirname(parent.id), request);
     paths = [path.dirname(parent.filename)];
@@ -405,26 +618,34 @@ Module.prototype.loadObject = function (filename, loadPromise) {
   }, 0);
 };
 
-Module.prototype.loadScript = function (filename, loadPromise) {
-  var self = this;
-  if (filename.match(/^http:\/\//)) {
-    var catPromise = new process.Promise();
-    loadModule('http', this)
+function cat (id, loadPromise) {
+  var promise;
+
+  if (id.match(/^http:\/\//)) {
+    promise = new process.Promise();
+    loadModule('http', process.mainModule)
       .addCallback(function(http) {
-        http.cat(filename)
+        http.cat(id)
           .addCallback(function(content) {
-            catPromise.emitSuccess(content);
+            promise.emitSuccess(content);
           })
           .addErrback(function() {
-            catPromise.emitError.apply(null, arguments);
+            promise.emitError.apply(null, arguments);
           });
       })
       .addErrback(function() {
         loadPromise.emitError(new Error("could not load core module \"http\""));
       });
   } else {
-    var catPromise = process.cat(filename);
+    promise = process.fs.cat(id);
   }
+
+  return promise;
+}
+
+Module.prototype.loadScript = function (filename, loadPromise) {
+  var self = this;
+  var catPromise = cat(filename, loadPromise);
 
   catPromise.addErrback(function () {
     loadPromise.emitError(new Error("Error reading " + filename));
@@ -444,7 +665,7 @@ Module.prototype.loadScript = function (filename, loadPromise) {
 
     require.paths = process.paths;
     require.async = requireAsync;
-    
+    require.main = process.mainModule;
     // create wrapper function
     var wrapper = "var __wrap__ = function (exports, require, module, __filename) { " 
                 + content 
@@ -494,10 +715,18 @@ if (process.ARGV[1].charAt(0) != "/" && !/^http:\/\//.exec(process.ARGV[1])) {
   process.ARGV[1] = path.join(cwd, process.ARGV[1]);
 }
 
-// Load the root module--the command line argument.
-var m = createModule("."); 
+// Load the main module--the command line argument.
+process.mainModule = createModule(".");
 var loadPromise = new process.Promise();
-m.load(process.ARGV[1], loadPromise);
-loadPromise.wait();
+process.mainModule.load(process.ARGV[1], loadPromise);
+
+// All our arguments are loaded. We've evaluated all of the scripts. We
+// might even have created TCP servers. Now we enter the main eventloop. If
+// there are no watchers on the loop (except for the ones that were
+// ev_unref'd) then this function exits. As long as there are active
+// watchers, it blocks.
+process.loop();
+
+process.emit("exit");
 
 }()); // end annonymous namespace

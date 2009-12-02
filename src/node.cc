@@ -16,6 +16,7 @@
 #include <node_file.h>
 #include <node_http.h>
 #include <node_signal_handler.h>
+#include <node_stat.h>
 #include <node_timer.h>
 #include <node_child_process.h>
 #include <node_constants.h>
@@ -159,6 +160,71 @@ ssize_t DecodeWrite(char *buf, size_t buflen,
   return buflen;
 }
 
+#define DEV_SYMBOL         String::NewSymbol("dev")
+#define INO_SYMBOL         String::NewSymbol("ino")
+#define MODE_SYMBOL        String::NewSymbol("mode")
+#define NLINK_SYMBOL       String::NewSymbol("nlink")
+#define UID_SYMBOL         String::NewSymbol("uid")
+#define GID_SYMBOL         String::NewSymbol("gid")
+#define RDEV_SYMBOL        String::NewSymbol("rdev")
+#define SIZE_SYMBOL        String::NewSymbol("size")
+#define BLKSIZE_SYMBOL     String::NewSymbol("blksize")
+#define BLOCKS_SYMBOL      String::NewSymbol("blocks")
+#define ATIME_SYMBOL       String::NewSymbol("atime")
+#define MTIME_SYMBOL       String::NewSymbol("mtime")
+#define CTIME_SYMBOL       String::NewSymbol("ctime")
+
+static Persistent<FunctionTemplate> stats_constructor_template;
+
+Local<Object> BuildStatsObject(struct stat * s) {
+  HandleScope scope;
+
+  Local<Object> stats =
+    stats_constructor_template->GetFunction()->NewInstance();
+
+  /* ID of device containing file */
+  stats->Set(DEV_SYMBOL, Integer::New(s->st_dev));
+
+  /* inode number */
+  stats->Set(INO_SYMBOL, Integer::New(s->st_ino));
+
+  /* protection */
+  stats->Set(MODE_SYMBOL, Integer::New(s->st_mode));
+
+  /* number of hard links */
+  stats->Set(NLINK_SYMBOL, Integer::New(s->st_nlink));
+
+  /* user ID of owner */
+  stats->Set(UID_SYMBOL, Integer::New(s->st_uid));
+
+  /* group ID of owner */
+  stats->Set(GID_SYMBOL, Integer::New(s->st_gid));
+
+  /* device ID (if special file) */
+  stats->Set(RDEV_SYMBOL, Integer::New(s->st_rdev));
+
+  /* total size, in bytes */
+  stats->Set(SIZE_SYMBOL, Integer::New(s->st_size));
+
+  /* blocksize for filesystem I/O */
+  stats->Set(BLKSIZE_SYMBOL, Integer::New(s->st_blksize));
+
+  /* number of blocks allocated */
+  stats->Set(BLOCKS_SYMBOL, Integer::New(s->st_blocks));
+
+  /* time of last access */
+  stats->Set(ATIME_SYMBOL, NODE_UNIXTIME_V8(s->st_atime));
+
+  /* time of last modification */
+  stats->Set(MTIME_SYMBOL, NODE_UNIXTIME_V8(s->st_mtime));
+
+  /* time of last status change */
+  stats->Set(CTIME_SYMBOL, NODE_UNIXTIME_V8(s->st_ctime));
+
+  return scope.Close(stats);
+}
+
+
 // Extracts a C str from a V8 Utf8Value.
 const char* ToCString(const v8::String::Utf8Value& value) {
   return *value ? *value : "<str conversion failed>";
@@ -231,6 +297,55 @@ Handle<Value> ExecuteString(v8::Handle<v8::String> source,
   return scope.Close(result);
 }
 
+static Handle<Value> ByteLength(const Arguments& args) {
+  HandleScope scope;
+
+  if (args.Length() < 1 || !args[0]->IsString()) {
+    return ThrowException(Exception::Error(String::New("Bad argument.")));
+  }
+
+  Local<Integer> length = Integer::New(DecodeBytes(args[0], ParseEncoding(args[1], UTF8)));
+
+  return scope.Close(length);
+}
+
+static Handle<Value> Loop(const Arguments& args) {
+  HandleScope scope;
+  ev_loop(EV_DEFAULT_UC_ 0);
+  return Undefined();
+}
+
+static Handle<Value> Unloop(const Arguments& args) {
+  HandleScope scope;
+  int how = EVUNLOOP_ONE;
+  if (args[0]->IsString()) {
+    String::Utf8Value how_s(args[0]->ToString());
+    if (0 == strcmp(*how_s, "all")) {
+      how = EVUNLOOP_ALL;
+    }
+  }
+  ev_unloop(EV_DEFAULT_ how);
+  return Undefined();
+}
+
+static Handle<Value> Chdir(const Arguments& args) {
+  HandleScope scope;
+  
+  if (args.Length() != 1 || !args[0]->IsString()) {
+    return ThrowException(Exception::Error(String::New("Bad argument.")));
+  }
+  
+  String::Utf8Value path(args[0]->ToString());
+  
+  int r = chdir(*path);
+  
+  if (r != 0) {
+    return ThrowException(Exception::Error(String::New(strerror(errno))));
+  }
+
+  return Undefined();
+}
+
 static Handle<Value> Cwd(const Arguments& args) {
   HandleScope scope;
 
@@ -244,6 +359,19 @@ static Handle<Value> Cwd(const Arguments& args) {
   return scope.Close(cwd);
 }
 
+static Handle<Value> Umask(const Arguments& args){
+  HandleScope scope;
+
+  if(args.Length() < 1 || !args[0]->IsInt32()) {		
+    return ThrowException(Exception::TypeError(
+          String::New("argument must be an integer.")));
+  }
+  unsigned int mask = args[0]->Uint32Value();
+  unsigned int old = umask((mode_t)mask);
+  
+  return scope.Close(Uint32::New(old));
+}
+
 v8::Handle<v8::Value> Exit(const v8::Arguments& args) {
   int r = 0;
   if (args.Length() > 0)
@@ -252,6 +380,151 @@ v8::Handle<v8::Value> Exit(const v8::Arguments& args) {
   exit(r);
   return Undefined();
 }
+
+#ifdef __APPLE__
+#define HAVE_GETMEM 1
+/* Researched by Tim Becker and Michael Knight
+ * http://blog.kuriositaet.de/?p=257
+ */
+
+#include <mach/task.h>
+#include <mach/mach_init.h>
+
+int getmem(size_t *rss, size_t *vsize) {
+  task_t task = MACH_PORT_NULL;
+  struct task_basic_info t_info;
+  mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
+
+  int r = task_info(mach_task_self(),
+                    TASK_BASIC_INFO,
+                    (task_info_t)&t_info,
+                    &t_info_count);
+
+  if (r != KERN_SUCCESS) return -1;
+
+  *rss = t_info.resident_size;
+  *vsize  = t_info.virtual_size;
+
+  return 0;
+}
+#endif  // __APPLE__
+
+#ifdef __linux__
+# define HAVE_GETMEM 1
+# include <sys/param.h> /* for MAXPATHLEN */
+# include <sys/user.h> /* for PAGE_SIZE */
+
+int getmem(size_t *rss, size_t *vsize) {
+  FILE *f = fopen("/proc/self/stat", "r");
+  if (!f) return -1;
+
+  int itmp;
+  char ctmp;
+  char buffer[MAXPATHLEN];
+
+  /* PID */
+  if (fscanf(f, "%d ", &itmp) == 0) goto error;
+  /* Exec file */
+  if (fscanf (f, "%s ", &buffer[0]) == 0) goto error;
+  /* State */
+  if (fscanf (f, "%c ", &ctmp) == 0) goto error;
+  /* Parent process */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* Process group */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* Session id */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* TTY */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* TTY owner process group */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* Flags */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* Minor faults (no memory page) */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* Minor faults, children */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* Major faults (memory page faults) */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* Major faults, children */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* utime */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* stime */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* utime, children */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* stime, children */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* jiffies remaining in current time slice */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* 'nice' value */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+  /* jiffies until next timeout */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* jiffies until next SIGALRM */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* start time (jiffies since system boot) */
+  if (fscanf (f, "%d ", &itmp) == 0) goto error;
+
+  /* Virtual memory size */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  *vsize = (size_t) itmp;
+
+  /* Resident set size */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  *rss = (size_t) itmp * PAGE_SIZE;
+
+  /* rlim */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* Start of text */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* End of text */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+  /* Start of stack */
+  if (fscanf (f, "%u ", &itmp) == 0) goto error;
+
+  fclose (f);
+
+  return 0;
+
+error:
+  fclose (f);
+  return -1;
+}
+#endif  // __linux__
+
+v8::Handle<v8::Value> MemoryUsage(const v8::Arguments& args) {
+  HandleScope scope;
+
+#ifndef HAVE_GETMEM
+  return ThrowException(Exception::Error(String::New("Not support on your platform. (Talk to Ryan.)")));
+#else
+  size_t rss, vsize;
+
+  int r = getmem(&rss, &vsize);
+
+  if (r != 0) {
+    return ThrowException(Exception::Error(String::New(strerror(errno))));
+  }
+
+  Local<Object> info = Object::New();
+
+  info->Set(String::NewSymbol("rss"), Integer::NewFromUnsigned(rss));
+  info->Set(String::NewSymbol("vsize"), Integer::NewFromUnsigned(vsize));
+
+  // V8 memory usage
+  HeapStatistics v8_heap_stats;
+  V8::GetHeapStatistics(&v8_heap_stats);
+  info->Set(String::NewSymbol("heapTotal"),
+            Integer::NewFromUnsigned(v8_heap_stats.total_heap_size()));
+  info->Set(String::NewSymbol("heapUsed"),
+            Integer::NewFromUnsigned(v8_heap_stats.used_heap_size()));
+
+  return scope.Close(info);
+#endif
+}
+
 
 v8::Handle<v8::Value> Kill(const v8::Arguments& args) {
   HandleScope scope;
@@ -357,9 +630,51 @@ static void OnFatalError(const char* location, const char* message) {
   exit(1);
 }
 
+static int uncaught_exception_counter = 0;
+
 void FatalException(TryCatch &try_catch) {
-  ReportException(&try_catch);
-  exit(1);
+  HandleScope scope;
+
+  // Check if uncaught_exception_counter indicates a recursion
+  if (uncaught_exception_counter > 0) {
+    ReportException(&try_catch);
+    exit(1);
+  }
+
+  Local<Value> listeners_v = process->Get(String::NewSymbol("listeners"));
+  assert(listeners_v->IsFunction());
+
+  Local<Function> listeners = Local<Function>::Cast(listeners_v);
+
+  Local<String> uncaught_exception = String::NewSymbol("uncaughtException");
+
+  Local<Value> argv[1] = { uncaught_exception };
+  Local<Value> ret = listeners->Call(process, 1, argv);
+
+  assert(ret->IsArray());
+
+  Local<Array> listener_array = Local<Array>::Cast(ret);
+
+  uint32_t length = listener_array->Length();
+  // Report and exit if process has no "uncaughtException" listener
+  if (length == 0) {
+    ReportException(&try_catch);
+    exit(1);
+  }
+
+  // Otherwise fire the process "uncaughtException" event
+  Local<Value> emit_v = process->Get(String::NewSymbol("emit"));
+  assert(emit_v->IsFunction());
+
+  Local<Function> emit = Local<Function>::Cast(emit_v);
+
+  Local<Value> error = try_catch.Exception();
+  Local<Value> event_argv[2] = { uncaught_exception, error };
+
+  uncaught_exception_counter++;
+  emit->Call(process, 2, event_argv);
+  // Decrement so we know if the next exception is a recursion or not
+  uncaught_exception_counter--;
 }
 
 static ev_async eio_watcher;
@@ -428,10 +743,15 @@ static Local<Object> Load(int argc, char *argv[]) {
   Local<Object> global = Context::GetCurrent()->Global();
   global->Set(String::NewSymbol("process"), process);
 
-  // node.version
+  // process.version
   process->Set(String::NewSymbol("version"), String::New(NODE_VERSION));
-  // node.installPrefix
+  // process.installPrefix
   process->Set(String::NewSymbol("installPrefix"), String::New(NODE_PREFIX));
+
+  // process.platform
+#define xstr(s) str(s)
+#define str(s) #s
+  process->Set(String::NewSymbol("platform"), String::New(xstr(PLATFORM)));
 
   // process.ARGV
   int i, j;
@@ -463,21 +783,35 @@ static Local<Object> Load(int argc, char *argv[]) {
   process->Set(String::NewSymbol("pid"), Integer::New(getpid()));
 
   // define various internal methods
+  NODE_SET_METHOD(process, "loop", Loop);
+  NODE_SET_METHOD(process, "unloop", Unloop);
   NODE_SET_METHOD(process, "compile", Compile);
+  NODE_SET_METHOD(process, "_byteLength", ByteLength);
   NODE_SET_METHOD(process, "reallyExit", Exit);
+  NODE_SET_METHOD(process, "chdir", Chdir);
   NODE_SET_METHOD(process, "cwd", Cwd);
+  NODE_SET_METHOD(process, "umask", Umask);
   NODE_SET_METHOD(process, "dlopen", DLOpen);
   NODE_SET_METHOD(process, "kill", Kill);
+  NODE_SET_METHOD(process, "memoryUsage", MemoryUsage);
 
   // Assign the EventEmitter. It was created in main().
   process->Set(String::NewSymbol("EventEmitter"),
                EventEmitter::constructor_template->GetFunction());
+
+  // Initialize the stats object
+  Local<FunctionTemplate> stat_templ = FunctionTemplate::New();
+  stats_constructor_template = Persistent<FunctionTemplate>::New(stat_templ);
+  process->Set(String::NewSymbol("Stats"),
+      stats_constructor_template->GetFunction());
+
 
   // Initialize the C++ modules..................filename of module
   Promise::Initialize(process);                // events.cc
   Stdio::Initialize(process);                  // stdio.cc
   Timer::Initialize(process);                  // timer.cc
   SignalHandler::Initialize(process);          // signal_handler.cc
+  Stat::Initialize(process);                   // stat.cc
   ChildProcess::Initialize(process);           // child_process.cc
   DefineConstants(process);                    // constants.cc
   // Create node.dns
@@ -502,36 +836,9 @@ static Local<Object> Load(int argc, char *argv[]) {
 
   // Compile, execute the src/*.js files. (Which were included a static C
   // strings in node_natives.h)
-  ExecuteNativeJS("util.js", native_util);
-  ExecuteNativeJS("events.js", native_events);
-  ExecuteNativeJS("file.js", native_file);
   // In node.js we actually load the file specified in ARGV[1]
   // so your next reading stop should be node.js!
   ExecuteNativeJS("node.js", native_node);
-}
-
-static void EmitExitEvent() {
-  HandleScope scope;
-
-  // Get the 'emit' function from 'process'
-  Local<Value> emit_v = process->Get(String::NewSymbol("emit"));
-  if (!emit_v->IsFunction()) {
-    // could not emit exit event so exit
-    exit(10);
-  }
-  // Cast
-  Local<Function> emit = Local<Function>::Cast(emit_v);
-
-  TryCatch try_catch;
-
-  // Arguments for the emit('exit')
-  Local<Value> argv[2] = { String::New("exit"), Integer::New(0) };
-  // Emit!
-  emit->Call(process, 2, argv);
-
-  if (try_catch.HasCaught()) {
-    node::FatalException(try_catch);
-  }
 }
 
 static void PrintHelp() {
@@ -657,18 +964,7 @@ int main(int argc, char *argv[]) {
   // so your next reading stop should be node::Load()!
   node::Load(argc, argv);
 
-  // All our arguments are loaded. We've evaluated all of the scripts. We
-  // might even have created TCP servers. Now we enter the main event loop.
-  // If there are no watchers on the loop (except for the ones that were
-  // ev_unref'd) then this function exits. As long as there are active
-  // watchers, it blocks.
-  ev_loop(EV_DEFAULT_UC_ 0);  // main event loop
-
-  // Once we've dropped out, emit the 'exit' event from 'process'
-  node::EmitExitEvent();
-
 #ifndef NDEBUG
-  printf("clean up\n");
   // Clean up.
   context.Dispose();
   V8::Dispose();
