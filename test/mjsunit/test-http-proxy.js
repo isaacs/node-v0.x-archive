@@ -16,7 +16,7 @@ backend.listen(BACKEND_PORT);
 var proxy_client = http.createClient(BACKEND_PORT);
 var proxy = http.createServer(function (req, res) {
   debug("proxy req headers: " + JSON.stringify(req.headers));
-  var proxy_req = proxy_client.get(req.uri.path);
+  var proxy_req = proxy_client.request(req.uri.path);
   proxy_req.finish(function(proxy_res) {
     res.sendHeader(proxy_res.statusCode, proxy_res.headers);
     proxy_res.addListener("body", function(chunk) {
@@ -34,11 +34,11 @@ proxy.listen(PROXY_PORT);
 var body = "";
 
 var client = http.createClient(PROXY_PORT);
-var req = client.get("/test");
+var req = client.request("/test");
 // debug("client req")
 req.finish(function (res) {
   // debug("got res");
-  assertEquals(200, res.statusCode);
+  assert.equal(200, res.statusCode);
   res.setBodyEncoding("utf8");
   res.addListener("body", function (chunk) { body += chunk; });
   res.addListener("complete", function () {
@@ -49,5 +49,5 @@ req.finish(function (res) {
 });
 
 process.addListener("exit", function () {
-  assertEquals(body, "hello world\n");
+  assert.equal(body, "hello world\n");
 });

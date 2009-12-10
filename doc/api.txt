@@ -1,7 +1,7 @@
 NODE(1)
 =======
 Ryan Dahl <ry@tinyclouds.org>
-Version, 0.1.20, 2009.11.28
+Version, 0.1.21, 2009.12.06
 
 
 == NAME
@@ -219,7 +219,7 @@ sys.exec("ls /").addCallback(function (stdout, stderr) {
 
 Many objects in Node emit events: a TCP server emits an event each time
 there is a connection, a child process emits an event when it exits. All
-objects which emit events are are instances of +process.EventEmitter+.
+objects which emit events are instances of +process.EventEmitter+.
 
 Events are represented by a camel-cased string. Here are some examples:
 +"connection"+, +"receive"+, +"messageBegin"+.
@@ -928,7 +928,7 @@ Example of connecting to +google.com+
 var sys = require("sys"),
    http = require("http");
 var google = http.createClient(80, "www.google.com");
-var request = google.get("/", {"host": "www.google.com"});
+var request = google.request("GET", "/", {"host": "www.google.com"});
 request.finish(function (response) {
   sys.puts("STATUS: " + response.statusCode);
   sys.puts("HEADERS: " + JSON.stringify(response.headers));
@@ -945,9 +945,12 @@ Constructs a new HTTP client. +port+ and
 +host+ refer to the server to be connected to. A
 connection is not established until a request is issued.
 
-+client.get(path, request_headers)+, +client.head(path, request_headers)+, +client.post(path, request_headers)+, +client.del(path, request_headers)+, +client.put(path, request_headers)+ ::
++client.request([method], path, [request_headers])+ ::
 
 Issues a request; if necessary establishes connection. Returns a +http.ClientRequest+ instance.
+
++
++method+ is optional and defaults to "GET" if omitted.
 +
 +request_headers+ is optional.
 Additional request headers might be added internally

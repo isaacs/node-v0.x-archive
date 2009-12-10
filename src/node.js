@@ -70,10 +70,6 @@ node.inherits = function () {
   throw new Error("node.inherits() has moved. Use require('sys') to access it.");
 };
 
-process.inherits = function () {
-  throw new Error("process.inherits() has moved. Use require('sys') to access it.");
-};
-
 
 process.createChildProcess = function (file, args, env) {
   var child = new process.ChildProcess();
@@ -90,40 +86,6 @@ process.createChildProcess = function (file, args, env) {
   // a '/' character.
   child.spawn(file, args, envPairs);
   return child;
-};
-
-process.fs.cat = function (path, encoding) {
-  var promise = new process.Promise();
-  
-  encoding = encoding || "utf8"; // default to utf8
-
-  process.fs.open(path, process.O_RDONLY, 0666).addCallback(function (fd) {
-    var content = "", pos = 0;
-
-    function readChunk () {
-      process.fs.read(fd, 16*1024, pos, encoding).addCallback(function (chunk, bytes_read) {
-        if (chunk) {
-          if (chunk.constructor === String) {
-            content += chunk;
-          } else {
-            content = content.concat(chunk);
-          }
-
-          pos += bytes_read;
-          readChunk();
-        } else {
-          promise.emitSuccess(content);
-          process.fs.close(fd);
-        }
-      }).addErrback(function () {
-        promise.emitError();
-      });
-    }
-    readChunk();
-  }).addErrback(function () {
-    promise.emitError(new Error("Could not open " + path));
-  });
-  return promise;
 };
 
 process.assert = function (x, msg) {
@@ -147,7 +109,7 @@ process.mixin = function() {
 	}
 
 	// Handle case when target is a string or something (possible in deep copy)
-	if ( typeof target !== "object" && !process.isFunction(target) )
+	if ( typeof target !== "object" && !(typeof target === 'function') )
 		target = {};
 
 	// mixin process itself if only one argument is passed
@@ -168,14 +130,14 @@ process.mixin = function() {
 					continue;
 
 				// Recurse if we're merging object values
-				if ( deep && copy && typeof copy === "object" && !copy.nodeType )
+				if ( deep && copy && typeof copy === "object" )
 					target[ name ] = process.mixin( deep, 
 						// Never move original objects, clone them
 						src || ( copy.length != null ? [ ] : { } )
 					, copy );
 
 				// Don't bring in undefined values
-				else if ( copy !== undefined )
+				else
 					target[ name ] = copy;
 
 			}
@@ -217,6 +179,24 @@ process.EventEmitter.prototype.listeners = function (type) {
   if (!this._events.hasOwnProperty(type)) this._events[type] = [];
   return this._events[type];
 };
+
+process.inherits = function (ctor, superCtor) {
+  var tempCtor = function(){};
+  tempCtor.prototype = superCtor.prototype;
+  ctor.super_ = superCtor;
+  ctor.prototype = new tempCtor();
+  ctor.prototype.constructor = ctor;
+};
+
+
+// Promise
+
+process.Promise = function () {
+  process.EventEmitter.call();
+  this._blocking = false;
+  this._hasFired = false;
+}
+process.inherits(process.Promise, process.EventEmitter);
 
 process.Promise.prototype.timeout = function(timeout) {
   if (timeout === undefined) {
@@ -269,7 +249,22 @@ process.Promise.prototype.cancel = function() {
 process.Promise.prototype.emitCancel = function() {
   var args = Array.prototype.slice.call(arguments);
   args.unshift('cancel');
+  this.emit.apply(this, args);
+};
 
+process.Promise.prototype.emitSuccess = function() {
+  if (this.hasFired) return;
+  var args = Array.prototype.slice.call(arguments);
+  args.unshift('success');
+  this.hasFired = true;
+  this.emit.apply(this, args);
+};
+
+process.Promise.prototype.emitError = function() {
+  if (this.hasFired) return;
+  var args = Array.prototype.slice.call(arguments);
+  args.unshift('error');
+  this.hasFired = true;
   this.emit.apply(this, args);
 };
 
@@ -288,26 +283,51 @@ process.Promise.prototype.addCancelback = function (listener) {
   return this;
 };
 
-process.Promise.prototype.wait = function () {
-  var ret;
-  var had_error = false;
-  this.addCallback(function () {
-        if (arguments.length == 1) {
-          ret = arguments[0];
-        } else if (arguments.length > 1) {
-          ret = [];
-          for (var i = 0; i < arguments.length; i++) {
-            ret.push(arguments[i]);
-          }
-        }
-      })
-      .addErrback(function (arg) {
-        had_error = true;
-        ret = arg;
-      })
-      .block();
+/* Poor Man's coroutines */
+var coroutineStack = [];
 
-  if (had_error) {
+process.Promise.prototype._destack = function () {
+  this._blocking = false;
+
+  while (coroutineStack.length > 0 &&
+         !coroutineStack[coroutineStack.length-1]._blocking)
+  {
+    coroutineStack.pop();
+    process.unloop("one");
+  }
+};
+
+process.Promise.prototype.wait = function () {
+  var self = this;
+  var ret;
+  var hadError = false;
+
+  self.addCallback(function () {
+    if (arguments.length == 1) {
+      ret = arguments[0];
+    } else if (arguments.length > 1) {
+      ret = Array.prototype.slice.call(arguments);
+    }
+    self._destack();
+  });
+
+  self.addErrback(function (arg) {
+    hadError = true;
+    ret = arg;
+    self._destack();
+  });
+
+  coroutineStack.push(self);
+  if (coroutineStack.length > 10) {
+    process.stdio.writeError("WARNING: promise.wait() is being called too often.\n");
+  }
+  self._blocking = true;
+
+  process.loop();
+
+  process.assert(self._blocking == false);
+
+  if (hadError) {
     if (ret) {
       throw ret;
     } else {
@@ -372,6 +392,38 @@ process.unwatchFile = function (filename) {
     stat.stop();
     statWatchers[filename] = undefined;
   }
+};
+
+process.Stats.prototype._checkModeProperty = function (property) {
+  return ((this.mode & property) === property);
+};
+
+process.Stats.prototype.isDirectory = function () {
+  return this._checkModeProperty(process.S_IFDIR);
+};
+
+process.Stats.prototype.isFile = function () {
+  return this._checkModeProperty(process.S_IFREG);
+};
+
+process.Stats.prototype.isBlockDevice = function () {
+  return this._checkModeProperty(process.S_IFBLK);
+};
+
+process.Stats.prototype.isCharacterDevice = function () {
+  return this._checkModeProperty(process.S_IFCHR);
+};
+
+process.Stats.prototype.isSymbolicLink = function () {
+  return this._checkModeProperty(process.S_IFLNK);
+};
+
+process.Stats.prototype.isFIFO = function () {
+  return this._checkModeProperty(process.S_IFIFO);
+};
+
+process.Stats.prototype.isSocket = function () {
+  return this._checkModeProperty(process.S_IFSOCK);
 };
 
 
@@ -446,6 +498,175 @@ function createInternalModule (id, constructor) {
   return m;
 };
 
+var posixModule = createInternalModule("posix", function (exports) {
+  exports.Stats = process.Stats;
+
+  function callback (promise) {
+    return function () {
+      if (arguments[0] instanceof Error) {
+        promise.emitError.apply(promise, arguments);
+      } else {
+        promise.emitSuccess.apply(promise, arguments);
+      }
+    }
+  }
+
+  // Yes, the follow could be easily DRYed up but I provide the explicit
+  // list to make the arguments clear.
+
+  exports.close = function (fd) {
+    var promise = new process.Promise()
+    process.fs.close(fd, callback(promise));
+    return promise;
+  };
+
+  exports.closeSync = function (fd) {
+    return process.fs.close(fd);
+  };
+
+  exports.open = function (path, flags, mode) {
+    var promise = new process.Promise()
+    process.fs.open(path, flags, mode, callback(promise));
+    return promise;
+  };
+
+  exports.openSync = function (path, flags, mode) {
+    return process.fs.open(path, flags, mode);
+  };
+
+  exports.read = function (fd, length, position, encoding) {
+    var promise = new process.Promise()
+    encoding = encoding || "binary";
+    process.fs.read(fd, length, position, encoding, callback(promise));
+    return promise;
+  };
+
+  exports.readSync = function (fd, length, position, encoding) {
+    encoding = encoding || "binary";
+    return process.fs.read(fd, length, position, encoding);
+  };
+
+  exports.write = function (fd, data, position, encoding) {
+    var promise = new process.Promise()
+    encoding = encoding || "binary";
+    process.fs.write(fd, data, position, encoding, callback(promise));
+    return promise;
+  };
+
+  exports.writeSync = function (fd, data, position, encoding) {
+    encoding = encoding || "binary";
+    return process.fs.write(fd, data, position, encoding);
+  };
+
+  exports.rename = function (oldPath, newPath) {
+    var promise = new process.Promise()
+    process.fs.rename(oldPath, newPath, callback(promise));
+    return promise;
+  };
+
+  exports.renameSync = function (oldPath, newPath) {
+    return process.fs.rename(oldPath, newPath);
+  };
+
+  exports.rmdir = function (path) {
+    var promise = new process.Promise()
+    process.fs.rmdir(path, callback(promise));
+    return promise;
+  };
+
+  exports.rmdirSync = function (path) {
+    return process.fs.rmdir(path);
+  };
+
+  exports.mkdir = function (path, mode) {
+    var promise = new process.Promise()
+    process.fs.mkdir(path, mode, callback(promise));
+    return promise;
+  };
+
+  exports.mkdirSync = function (path, mode) {
+    return process.fs.mkdir(path, mode);
+  };
+
+  exports.sendfile = function (outFd, inFd, inOffset, length) {
+    var promise = new process.Promise()
+    process.fs.sendfile(outFd, inFd, inOffset, length, callback(promise));
+    return promise;
+  };
+
+  exports.sendfileSync = function (outFd, inFd, inOffset, length) {
+    return process.fs.sendfile(outFd, inFd, inOffset, length);
+  };
+
+  exports.readdir = function (path) {
+    var promise = new process.Promise()
+    process.fs.readdir(path, callback(promise));
+    return promise;
+  };
+
+  exports.readdirSync = function (path) {
+    return process.fs.readdir(path);
+  };
+
+  exports.stat = function (path) {
+    var promise = new process.Promise()
+    process.fs.stat(path, callback(promise));
+    return promise;
+  };
+
+  exports.statSync = function (path) {
+    return process.fs.stat(path);
+  };
+
+  exports.unlink = function (path) {
+    var promise = new process.Promise()
+    process.fs.unlink(path, callback(promise));
+    return promise;
+  };
+
+  exports.unlinkSync = function (path) {
+    return process.fs.unlink(path);
+  };
+
+
+  exports.cat = function (path, encoding) {
+    var promise = new process.Promise();
+
+    encoding = encoding || "utf8"; // default to utf8
+
+    exports.open(path, process.O_RDONLY, 0666).addCallback(function (fd) {
+      var content = "", pos = 0;
+
+      function readChunk () {
+        exports.read(fd, 16*1024, pos, encoding).addCallback(function (chunk, bytes_read) {
+          if (chunk) {
+            if (chunk.constructor === String) {
+              content += chunk;
+            } else {
+              content = content.concat(chunk);
+            }
+
+            pos += bytes_read;
+            readChunk();
+          } else {
+            promise.emitSuccess(content);
+            exports.close(fd);
+          }
+        }).addErrback(function () {
+          promise.emitError.call(arguments);
+        });
+      }
+      readChunk();
+    }).addErrback(function () {
+      promise.emitError.apply(promise, arguments);
+    });
+    return promise;
+  };
+});
+
+var posix = posixModule.exports;
+
+
 var pathModule = createInternalModule("path", function (exports) {
   exports.join = function () {
     var joined = "";
@@ -481,7 +702,7 @@ var pathModule = createInternalModule("path", function (exports) {
   };
 
   exports.exists = function (path, callback) {
-    var p = process.fs.stat(path);
+    var p = posix.stat(path);
     p.addCallback(function () { callback(true); });
     p.addErrback(function () { callback(false); });
   };
@@ -637,7 +858,7 @@ function cat (id, loadPromise) {
         loadPromise.emitError(new Error("could not load core module \"http\""));
       });
   } else {
-    promise = process.fs.cat(id);
+    promise = posix.cat(id);
   }
 
   return promise;
@@ -707,7 +928,7 @@ process.exit = function (code) {
 var cwd = process.cwd();
 
 // Make process.ARGV[0] and process.ARGV[1] into full paths.
-if (process.ARGV[0].charAt(0) != "/") {
+if (process.ARGV[0].indexOf('/') > 0) {
   process.ARGV[0] = path.join(cwd, process.ARGV[0]);
 }
 

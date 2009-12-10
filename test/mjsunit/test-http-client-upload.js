@@ -7,7 +7,7 @@ var server_req_complete = false;
 var client_res_complete = false;
 
 var server = http.createServer(function(req, res) {
-  assertEquals("POST", req.method);
+  assert.equal("POST", req.method);
   req.setBodyEncoding("utf8");
 
   req.addListener("body", function (chunk) {
@@ -26,7 +26,7 @@ var server = http.createServer(function(req, res) {
 server.listen(PORT);
 
 var client = http.createClient(PORT);
-var req = client.post('/');
+var req = client.request('POST', '/');
 
 req.sendBody('1\n');
 req.sendBody('2\n');
@@ -45,7 +45,7 @@ req.finish(function(res) {
 });
 
 process.addListener("exit", function () {
-  assertEquals("1\n2\n3\n", sent_body);
-  assertTrue(server_req_complete);
-  assertTrue(client_res_complete);
+  assert.equal("1\n2\n3\n", sent_body);
+  assert.equal(true, server_req_complete);
+  assert.equal(true, client_res_complete);
 });
