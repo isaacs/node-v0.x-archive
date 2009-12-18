@@ -23,7 +23,7 @@ GLOBAL.p = function () {
 }
 
 process.debug = function () {
-  throw new Error("process.debug() has moved. Use require('sys') to bring it back.");
+  throw new Error("process.debug() has moved. Use require('debug') to bring it back.");
 }
 
 process.error = function () {
@@ -451,18 +451,20 @@ GLOBAL.clearTimeout = function (timer) {
 GLOBAL.clearInterval = GLOBAL.clearTimeout;
 
 
+// just a stand-in, until the debug module is created lower down.
+var debug = function debug () {
+  if ("NODE_DEBUG" in process.ENV) {
+    for (var i = 0, l = arguments.length; i < l; i ++) {
+      var thing = arguments[i]
+      if (typeof thing !== "string") thing = JSON.stringify(thing);
+      process.stdio.writeError(thing);
+    }
+    process.stdio.writeError("\n");
+  }
+};
 
 
 // Modules
-
-var debugLevel = 0;
-if ("NODE_DEBUG" in process.ENV) debugLevel = 1;
-
-function debug (x) {
-  if (debugLevel > 0) {
-    process.stdio.writeError(x + "\n");
-  }
-}
 
 
 // private constructor
@@ -482,10 +484,10 @@ var moduleCache = {};
 
 function createModule (id, parent) {
   if (id in moduleCache) {
-    debug("found " + JSON.stringify(id) + " in cache");
+    debug("found ",id, " in cache");
     return moduleCache[id];
   }
-  debug("didn't found " + JSON.stringify(id) + " in cache. creating new module");
+  debug("didn't found ",id, " in cache. creating new module");
   var m = new Module(id, parent);
   moduleCache[id] = m;
   return m;
@@ -497,6 +499,137 @@ function createInternalModule (id, constructor) {
   m.loaded = true;
   return m;
 };
+
+
+var debugModule = createInternalModule("debug", function (exports) {
+  
+  // showing cats is way gentler than throwing cats.
+  // less fun, though.
+  exports.throwCats = ["error"];
+  exports.showCats = ["warn", "error", "debug", "deprecated"];
+  
+  if ("NODE_DEBUG_SHOW" in process.ENV) {
+    exports.showCats = process.ENV.NODE_DEBUG_SHOW.split(",");
+  }
+  if ("NODE_DEBUG_THROW" in process.ENV) {
+    exports.throwCats = process.ENV.NODE_DEBUG_THROW.split(",");
+  }
+  if ("NODE_DEBUG" in process.ENV) exports.showCats.push("nodecore");
+  
+  exports.log = function (thing, cat, printCat) {
+    // only create the message once, and only if necessary,
+    // as sometimes just inspecting a thing changes it.
+    // (The Heisenberg debugging principle)
+    var action = isRelevant(cat);
+    if (action) {
+      var message = (
+        (cat && printCat !== false) ? cat+": " : ""
+      )+exports.inspect(thing)+"\n";
+      if (action === "throw") throw new Error(message);
+      else process.stdio.writeError(message);
+    }
+    return exports;
+  };
+  
+  function isRelevant (cat) { return (
+    (-1 !== exports.throwCats.indexOf(cat)) ? "throw"
+      : (!cat || -1 !== exports.showCats.indexOf(cat)) ? "show"
+      : false
+  )};
+  
+  exports.logAll = function (things, cat) {
+    if (!isRelevant(cat)) return exports;
+    var out = [];
+    for (var i = 0, l = things.length; i < l; i ++) {
+      out.push(exports.inspect(things[i]));
+    }
+    return exports.log.apply(
+      this,
+      [out.join(" ")].concat(Array.prototype.slice.call(arguments, 1))
+    );
+  };
+  
+  ["info", "warn", "error", "debug"].forEach(function (cat) {
+    exports[cat] = function (thing) { return exports.log(thing, cat) };
+  });
+  
+  /**
+   * Echos the value of a value. Trys to print the value out
+   * in the best way possible given the different types.
+   *
+   * @param {Object} value The object to print out
+   */
+  exports.inspect = function (value) {
+    return formatter(value, '', []);
+  };
+
+  exports.p = function () {
+    exports.log("debug.p is deprecated. Please use debug.log instead.", "deprecated");
+    return exports.log.apply(this, arguments);
+  };
+
+  /**
+   * A recursive function to format an object - used by inspect.
+   *
+   * @param {Object} value
+   *   the value to format
+   * @param {String} indent
+   *   the indent level of any nested objects, since they are formatted over
+   *   more than one line
+   * @param {Array} parents
+   *   contains all objects above the current one in the heirachy, used to
+   *   prevent getting stuck in a loop on circular references
+   */
+  function formatter (value, indent, parents) {
+    switch(typeof(value)) {
+      case 'string':    return JSON.stringify(value);
+      case 'number':    return '' + value;
+      case 'function':  return '[Function]';
+      case 'boolean':   return '' + value;
+      case 'undefined': return 'undefined';
+      case 'object':
+        if (value == null) return 'null';
+        if (parents.indexOf(value) >= 0) return '[Circular]';
+        parents.push(value);
+
+        if (value instanceof Array) {
+          return formatObject(value, indent, parents, '[]', function(x, f) {
+            return f(value[x]);
+          });
+        } else {
+          return formatObject(value, indent, parents, '{}', function(x, f) {
+            return f(x) + ': ' + f(value[x]);
+          });
+        }
+        return buffer;
+      default:
+        throw('inspect unimplemented for ' + typeof(value));
+    }
+  }
+
+  /**
+   * Helper function for formatting either an array or an object, used internally by formatter
+   */
+  function formatObject (obj, indent, parents, parenthesis, entryFormatter) {
+    var buffer = parenthesis[0];
+    var values = [];
+
+    var localFormatter = function(value) {
+      return formatter(value, indent + ' ', parents);
+    };
+    for (x in obj) {
+      values.push(indent + ' ' + entryFormatter(x, localFormatter));
+    }
+    if (values.length > 0) {
+      buffer += "\n" + values.join(",\n") + "\n" + indent;
+    }
+    buffer += parenthesis[1];
+    return buffer;
+  }
+});
+debug = function debug () { return debugModule.exports.logAll(arguments, "nodecore") }
+
+
 
 var posixModule = createInternalModule("posix", function (exports) {
   exports.Stats = process.Stats;
@@ -777,7 +910,7 @@ function loadModule (request, parent) {
   // This is the promise which is actually returned from require.async()
   var loadPromise = new process.Promise();
 
-  debug("loadModule REQUEST  " + JSON.stringify(request) + " parent: " + JSON.stringify(parent));
+  debug("loadModule REQUEST  ", request, " parent: ", parent);
 
   var id, paths;
   if (request.charAt(0) == "." && (request.charAt(1) == "/" || request.charAt(1) == ".")) {
@@ -790,14 +923,14 @@ function loadModule (request, parent) {
   }
 
   if (id in moduleCache) {
-    debug("found  " + JSON.stringify(id) + " in cache");
+    debug("found  ", id, " in cache");
     // In cache
     var module = moduleCache[id];
     setTimeout(function () {
       loadPromise.emitSuccess(module.exports);
     }, 0);
   } else {
-    debug("looking for " + JSON.stringify(id) + " in " + JSON.stringify(paths));
+    debug("looking for ", id, " in ", paths);
     // Not in cache
     findModulePath(request, paths, function (filename) {
       if (!filename) {
@@ -813,7 +946,7 @@ function loadModule (request, parent) {
 };
 
 Module.prototype.load = function (filename, loadPromise) {
-  debug("load " + JSON.stringify(filename) + " for module " + JSON.stringify(this.id));
+  debug("load ",filename, " for module ",this.id);
 
   process.assert(!this.loaded);
   process.assert(!this.loadPromise);
