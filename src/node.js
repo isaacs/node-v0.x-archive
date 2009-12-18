@@ -667,13 +667,17 @@ var posix = posixModule.exports;
 
 var pathModule = createInternalModule("path", function (exports) {
   exports.join = function () {
-    var joined = "";
+    var joined = "", 
+      dotre = /^\.\//,
+      dotreplace = "",
+      dotdotre = /(^|(\/)([^\/]+\/)?)\.\.\//g,
+      dotdotreplace = ""
     for (var i = 0; i < arguments.length; i++) {
       var part = arguments[i].toString();
 
       /* Some logic to shorten paths */
       if (part === ".") continue;
-      while (/^\.\//.exec(part)) part = part.replace(/^\.\//, "");
+      while (dotre.exec(part)) part = part.replace(dotre, dotreplace);
 
       if (i === 0) {
         part = part.replace(/\/*$/, "/");
@@ -684,7 +688,10 @@ var pathModule = createInternalModule("path", function (exports) {
       }
       joined += part;
     }
+    // replace /foo/../bar/baz with /bar/baz
+    while (dotdotre.exec(joined)) joined = joined.replace(dotdotre, dotdotreplace);
     return joined;
+    
   };
 
   exports.dirname = function (path) {
@@ -775,15 +782,19 @@ function loadModule (request, parent) {
   // This is the promise which is actually returned from require.async()
   var loadPromise = new process.Promise();
 
-  debug("loadModule REQUEST  " + JSON.stringify(request) + " parent: " + JSON.stringify(parent));
+  // debug("loadModule REQUEST  " + (request) + " parent: " + JSON.stringify(parent));
 
   var id, paths;
   if (request.charAt(0) == "." && (request.charAt(1) == "/" || request.charAt(1) == ".")) {
     // Relative request
-    id = path.join(path.dirname(parent.id), request);
+    var parentIdPath = path.dirname(parent.id +
+      (path.filename(parent.filename).match(/^index\.(js|addon)$/) ? "/" : ""));
+    id = path.join(parentIdPath, request);
+    // debug("RELATIVE: requested:"+request+" set ID to: "+id+" from "+parent.id+"("+parentIdPath+")");
     paths = [path.dirname(parent.filename)];
   } else {
     id = request;
+    // debug("ABSOLUTE: id="+id);
     paths = process.paths;
   }
 
@@ -839,6 +850,8 @@ Module.prototype.loadObject = function (filename, loadPromise) {
 
 function cat (id, loadPromise) {
   var promise;
+  
+  debug(id);
 
   if (id.match(/^http:\/\//)) {
     promise = new process.Promise();
