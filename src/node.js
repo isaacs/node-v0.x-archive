@@ -460,6 +460,8 @@ var debug = function debug () {
       process.stdio.writeError(thing);
     }
     process.stdio.writeError("\n");
+  } else {
+    debug = function () {};
   }
 };
 
