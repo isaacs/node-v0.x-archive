@@ -1,5 +1,21 @@
 process.mixin(require("./common"));
 
+
+debug("test index.js modules ids and relative loading")
+var one = require("./fixtures/nested-index/one"),
+  two = require("./fixtures/nested-index/two");
+assert.notEqual(one.hello, two.hello);
+
+var root = require("./fixtures/cycles/root"),
+  foo = require("./fixtures/cycles/folder/foo");
+assert.equal(root.foo, foo);
+debug(root.sayHello());
+debug(root.hello);
+debug(root);
+assert.equal(root.sayHello(), root.hello);
+
+
+
 debug("load test-module-loading.js");
 
 var a = require("./fixtures/a");
@@ -32,6 +48,7 @@ assert.equal("D", d3.D());
 
 assert.equal(true, d4.D instanceof Function);
 assert.equal("D", d4.D());
+
 
 var errorThrown = false;
 try {
