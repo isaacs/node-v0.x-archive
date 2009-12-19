@@ -957,6 +957,10 @@ process.mainModule = createModule(".");
 var loadPromise = new process.Promise();
 process.mainModule.load(process.ARGV[1], loadPromise);
 
+loadPromise.addErrback(function(e) {
+  throw e;
+});
+
 // All our arguments are loaded. We've evaluated all of the scripts. We
 // might even have created TCP servers. Now we enter the main eventloop. If
 // there are no watchers on the loop (except for the ones that were
