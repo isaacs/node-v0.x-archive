@@ -667,31 +667,30 @@ var posix = posixModule.exports;
 
 var pathModule = createInternalModule("path", function (exports) {
   exports.join = function () {
-    var joined = "", 
-      dotre = /^\.\//,
-      dotreplace = "",
-      dotdotre = /(^|(\/)([^\/]+\/)?)\.\.\//g,
-      dotdotreplace = ""
+    var parts = [];
     for (var i = 0; i < arguments.length; i++) {
-      var part = arguments[i].toString();
-
-      /* Some logic to shorten paths */
-      if (part === ".") continue;
-      while (dotre.exec(part)) part = part.replace(dotre, dotreplace);
-
-      if (i === 0) {
-        part = part.replace(/\/*$/, "/");
-      } else if (i === arguments.length - 1) {
-        part = part.replace(/^\/*/, "");
-      } else {
-        part = part.replace(/^\/*/, "").replace(/\/*$/, "/");
-      }
-      joined += part;
+      parts.push(arguments[i].toString());
     }
-    // replace /foo/../bar/baz with /bar/baz
-    while (dotdotre.exec(joined)) joined = joined.replace(dotdotre, dotdotreplace);
-    return joined;
-    
+    return exports.normalize(parts.join("/"));
+  };
+  exports.normalizeArray = function (parts) {
+    var directories = [];
+    for (var i = 0, l = parts.length; i < l; i++) {
+      var directory = parts[i];
+      if (directory == '.') {
+      } else if (directory == '..') {
+        if (directories.length && directories[directories.length - 1] != '..')
+          directories.pop();
+        else
+          directories.push('..');
+      } else {
+        directories.push(directory);
+      }
+    }
+    return directories;
+  };
+  exports.normalize = function (path) {
+    return exports.normalizeArray(path.split("/")).join("/");
   };
 
   exports.dirname = function (path) {
