@@ -673,12 +673,13 @@ var pathModule = createInternalModule("path", function (exports) {
     var directories = [];
     for (var i = 0, l = parts.length; i < l; i++) {
       var directory = parts[i];
-      if (directory == '.') {
-      } else if (directory == '..') {
-        if (directories.length && directories[directories.length - 1] != '..')
-          directories.pop();
-        else
-          directories.push('..');
+      if (directory === "." || directory === "") continue;
+      if (
+        directory === ".."
+        && directories.length
+        && directories[directories.length - 1] != '..'
+      ) {
+        directories.pop();
       } else {
         directories.push(directory);
       }
