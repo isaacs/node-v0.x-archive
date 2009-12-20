@@ -667,11 +667,7 @@ var posix = posixModule.exports;
 
 var pathModule = createInternalModule("path", function (exports) {
   exports.join = function () {
-    var parts = [];
-    for (var i = 0; i < arguments.length; i++) {
-      parts.push(arguments[i].toString());
-    }
-    return exports.normalize(parts.join("/"));
+    return exports.normalize(Array.prototype.join.call(arguments, "/"));
   };
   exports.normalizeArray = function (parts) {
     var directories = [];
