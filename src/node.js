@@ -673,7 +673,9 @@ var pathModule = createInternalModule("path", function (exports) {
     var directories = [];
     for (var i = 0, l = parts.length; i < l; i++) {
       var directory = parts[i];
-      if (directory === "." || directory === "") continue;
+      if (directory === "." || (directory === "" && directories.length)) {
+        continue;
+      }
       if (
         directory === ".."
         && directories.length
