@@ -272,27 +272,27 @@ static void ReportException(TryCatch *try_catch) {
     if (raw_stack->IsString()) stack = Handle<String>::Cast(raw_stack);
   }
 
-  // Print (filename):(line number): (message).
-  String::Utf8Value filename(message->GetScriptResourceName());
-  const char* filename_string = ToCString(filename);
-  int linenum = message->GetLineNumber();
-  fprintf(stderr, "%s:%i\n", filename_string, linenum);
-  // Print line of source code.
-  String::Utf8Value sourceline(message->GetSourceLine());
-  const char* sourceline_string = ToCString(sourceline);
-  fprintf(stderr, "%s\n", sourceline_string);
-  // Print wavy underline (GetUnderline is deprecated).
-  int start = message->GetStartColumn();
-  for (int i = 0; i < start; i++) {
-    fprintf(stderr, " ");
-  }
-  int end = message->GetEndColumn();
-  for (int i = start; i < end; i++) {
-    fprintf(stderr, "^");
-  }
-  fprintf(stderr, "\n");
-
   if (stack.IsEmpty()) {
+    // Print (filename):(line number): (message).
+    String::Utf8Value filename(message->GetScriptResourceName());
+    const char* filename_string = ToCString(filename);
+    int linenum = message->GetLineNumber();
+    fprintf(stderr, "%s:%i\n", filename_string, linenum);
+    // Print line of source code.
+    String::Utf8Value sourceline(message->GetSourceLine());
+    const char* sourceline_string = ToCString(sourceline);
+    fprintf(stderr, "%s\n", sourceline_string);
+    // Print wavy underline (GetUnderline is deprecated).
+    int start = message->GetStartColumn();
+    for (int i = 0; i < start; i++) {
+      fprintf(stderr, " ");
+    }
+    int end = message->GetEndColumn();
+    for (int i = start; i < end; i++) {
+      fprintf(stderr, "^");
+    }
+    fprintf(stderr, "\n");
+
     message->PrintCurrentStackTrace(stderr);
   } else {
     String::Utf8Value trace(stack);
@@ -653,12 +653,11 @@ v8::Handle<v8::Value> Compile(const v8::Arguments& args) {
 }
 
 static void OnFatalError(const char* location, const char* message) {
-#define FATAL_ERROR "\033[1;31mV8 FATAL ERROR.\033[m"
-  if (location)
-    fprintf(stderr, FATAL_ERROR " %s %s\n", location, message);
-  else
-    fprintf(stderr, FATAL_ERROR " %s\n", message);
-
+  if (location) {
+    fprintf(stderr, "FATAL ERROR: %s %s\n", location, message);
+  } else {
+    fprintf(stderr, "FATAL ERROR: %s\n", message);
+  }
   exit(1);
 }
 
@@ -949,6 +948,9 @@ int main(int argc, char *argv[]) {
   ev_async_init(&node::eio_watcher, node::EIOCallback);
   // 2. Actaully start the thread pool.
   eio_init(node::EIOWantPoll, NULL);
+  // Don't handle more than 10 reqs on each eio_poll(). This is to avoid
+  // race conditions. See test/mjsunit/test-eio-race.js
+  eio_set_max_poll_reqs(10);
   // 3. Start watcher.
   ev_async_start(EV_DEFAULT_UC_ &node::eio_watcher);
   // 4. Remove a reference to the async watcher. This means we'll drop out
