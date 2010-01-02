@@ -1,6 +1,7 @@
 process.mixin(require("./common"));
 tcp = require("tcp");
 http = require("http");
+url = require("url");
 
 var port = 8222;
 
@@ -15,14 +16,14 @@ http.createServer(function (req, res) {
 
   if (req.id == 0) {
     assert.equal("GET", req.method);
-    assert.equal("/hello", req.uri.path);
+    assert.equal("/hello", url.parse(req.url).pathname);
     assert.equal("world", req.uri.params["hello"]);
     assert.equal("b==ar", req.uri.params["foo"]);
   }
 
   if (req.id == 1) {
     assert.equal("POST", req.method);
-    assert.equal("/quit", req.uri.path);
+    assert.equal("/quit", url.parse(req.url).pathname);
   }
 
   if (req.id == 2) {
@@ -37,7 +38,7 @@ http.createServer(function (req, res) {
 
   setTimeout(function () {
     res.sendHeader(200, {"Content-Type": "text/plain"});
-    res.sendBody(req.uri.path);
+    res.sendBody(url.parse(req.url).pathname);
     res.finish();
   }, 1);
 
