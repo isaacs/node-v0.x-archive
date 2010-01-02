@@ -674,13 +674,15 @@ var pathModule = createInternalModule("path", function (exports) {
     var directories = [];
     for (var i = 0; i < parts.length; i++) {
       var directory = parts[i];
-      if (directory === "." || (directory === "" && directories.length)) {
+      if (directory === "." || (
+        directory === "" && directories.length && i !== parts.length - 1)) {
         continue;
       }
       if (
         directory === ".."
         && directories.length
         && directories[directories.length - 1] != '..'
+        && directories[directories.length - 1] != ''
       ) {
         directories.pop();
       } else {
