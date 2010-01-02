@@ -2,6 +2,7 @@ process.mixin(require("./common"));
 tcp = require("tcp");
 http = require("http");
 url = require("url");
+qs = require("querystring");
 
 var port = 8222;
 
@@ -17,8 +18,8 @@ http.createServer(function (req, res) {
   if (req.id == 0) {
     assert.equal("GET", req.method);
     assert.equal("/hello", url.parse(req.url).pathname);
-    assert.equal("world", req.uri.params["hello"]);
-    assert.equal("b==ar", req.uri.params["foo"]);
+    assert.equal("world", qs.parse(url.parse(req.url).query).hello);
+    assert.equal("b==ar", qs.parse(url.parse(req.url).query).foo);
   }
 
   if (req.id == 1) {
