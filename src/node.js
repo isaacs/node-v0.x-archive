@@ -672,20 +672,25 @@ var pathModule = createInternalModule("path", function (exports) {
 
   exports.normalizeArray = function (parts) {
     var directories = [];
-    for (var i = 0; i < parts.length; i++) {
+    for (var i = 0, l = parts.length - 1; i <= l; i++) {
       var directory = parts[i];
-      if (directory === "." || (
-        directory === "" && directories.length && i !== parts.length - 1)) {
+      
+      if (
+        // it's blank, but it's not the first thing, and not the last thing, so skip it.
+        (directory === "" && i !== 0 && i !== l)
+      ) {
         continue;
       }
+      var prev = directories[directories.length - 1]
       if (
         directory === ".."
         && directories.length
-        && directories[directories.length - 1] != '..'
-        && directories[directories.length - 1] != ''
+        && prev != '..'
+        && prev != ''
       ) {
         directories.pop();
       } else {
+        if (prev === ".") directories.pop();
         directories.push(directory);
       }
     }
