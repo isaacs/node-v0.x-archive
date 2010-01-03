@@ -1,3 +1,0 @@
-
-module.setExports({ foo : "baz" })
-
