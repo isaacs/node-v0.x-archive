@@ -1,7 +1,6 @@
 process.mixin(require("./common"));
 tcp = require("tcp");
 http = require("http");
-url = require("url");
 
 // Make sure no exceptions are thrown when receiving malformed HTTP
 // requests.
@@ -11,7 +10,7 @@ nrequests_completed = 0;
 nrequests_expected = 1;
 
 var s = http.createServer(function (req, res) {
-  puts("req: " + JSON.stringify(url.parse(req.url)));
+  puts("req: " + JSON.stringify(req.uri));
 
   res.sendHeader(200, {"Content-Type": "text/plain"});
   res.sendBody("Hello World");

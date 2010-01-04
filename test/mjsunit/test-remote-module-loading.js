@@ -3,12 +3,11 @@ process.mixin(require("./common"));
 var PORT = 8889;
 var http = require('http');
 var sys = require('sys');
-var url = require("url");
 var modulesLoaded = 0;
 
 var server = http.createServer(function(req, res) {
   var body = 'exports.httpPath = function() {'+
-             'return '+JSON.stringify(url.parse(req.url).pathname)+';'+
+             'return '+JSON.stringify(req.uri.path)+';'+
              '};';
 
   res.sendHeader(200, {'Content-Type': 'text/javascript'});
