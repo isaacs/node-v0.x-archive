@@ -482,7 +482,6 @@ var moduleCache = {};
 
 function createModule (id, parent) {
   if (id in moduleCache) {
-    debug("found " + JSON.stringify(id) + " in cache");
     return moduleCache[id];
   }
   debug("didn't found " + JSON.stringify(id) + " in cache. creating new module");
@@ -779,7 +778,7 @@ function findModulePath (id, dirs, callback) {
 
     path.exists(location, function (found) {
       if (found) {
-        callback(location);
+        callback(location, path.join(dir, id));
         return;
       }
       searchLocations();
@@ -794,39 +793,51 @@ function loadModule (request, parent) {
 
   // debug("loadModule REQUEST  " + (request) + " parent: " + JSON.stringify(parent));
 
-  var id, paths;
-  if (request.charAt(0) == "." && (request.charAt(1) == "/" || request.charAt(1) == ".")) {
-    // Relative request
-    var parentIdPath = path.dirname(parent.id +
-      (path.filename(parent.filename).match(/^index\.(js|addon)$/) ? "/" : ""));
-    id = path.join(parentIdPath, request);
-    // debug("RELATIVE: requested:"+request+" set ID to: "+id+" from "+parent.id+"("+parentIdPath+")");
-    paths = [path.dirname(parent.filename)];
-  } else {
-    id = request;
-    // debug("ABSOLUTE: id="+id);
-    paths = process.paths;
+  // require("/foo") doesn't need to bother with paths.
+  // make a copy of the array so we can safely monkey around with it
+  var paths = (request.charAt(0) === "/") ? [""] : process.paths.slice(0),
+    parentIdPath = path.dirname(parent.filename) +
+      (path.filename(parent.filename).match(/^index\.(js|addon)$/) ? "/" : ""),
+    checkInternal = true;
+  if (
+    request.substr(0,2) === "./"
+    || request.substr(0,3) === "../"
+  ) {
+    // we're gonna try resolving it against the current dir first.
+    paths.unshift(parentIdPath);
+    checkInternal = false;
   }
 
-  if (id in moduleCache) {
-    debug("found  " + JSON.stringify(id) + " in cache");
-    // In cache
-    var module = moduleCache[id];
-    setTimeout(function () {
-      loadPromise.emitSuccess(module.exports);
-    }, 0);
-  } else {
-    debug("looking for " + JSON.stringify(id) + " in " + JSON.stringify(paths));
-    // Not in cache
-    findModulePath(request, paths, function (filename) {
-      if (!filename) {
-        loadPromise.emitError(new Error("Cannot find module '" + request + "'"));
-      } else {
-        var module = createModule(id, parent);
-        module.load(filename, loadPromise);
-      }
-    });
+  // try to find the module in the cache.
+  for (var i = 0, l = paths.length; i < l; i ++) {
+    var id = paths[i];
+    if (id.substr(0,2) === "./" || id.substr(0,3) === "../") {
+      // debug("add "+JSON.stringify(parentIdPath)+" to the paths to make it not-relative");
+      id = paths[i] = path.join(parentIdPath, id);
+    }
+    id = path.join(id, request);
+
+    var cachedModule = moduleCache[id] || (checkInternal && moduleCache[request]) || false;
+
+    if (cachedModule) {
+      debug("found " + JSON.stringify([cachedModule.id,request]) + " in cache");
+      setTimeout(function () {
+        loadPromise.emitSuccess(cachedModule.exports);
+      }, 0);
+      return loadPromise;
+    }
   }
+
+  // Not in cache
+  findModulePath(request, paths, function (filename, id) {
+    if (!filename) {
+      loadPromise.emitError(new Error("Cannot find module '" + request + "'"));
+    } else {
+      var module = createModule(id, parent);
+      // moduleCache[request] = module;
+      module.load(filename, loadPromise);
+    }
+  });
 
   return loadPromise;
 };
