@@ -44,6 +44,10 @@ var root = require("./fixtures/cycles/root"),
 assert.equal(root.foo, foo);
 assert.equal(root.sayHello(), root.hello);
 
+debug("test relative paths on require.paths");
+var foo = require("./fixtures/relative-require-paths/folder-1/c").foo;
+assert.equal("bar", foo);
+
 var errorThrown = false;
 try {
   require("./fixtures/throws_error");
