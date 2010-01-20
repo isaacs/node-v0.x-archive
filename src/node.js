@@ -1,4 +1,4 @@
-(function () { // annonymous namespace
+(function () { // anonymous namespace
 
 /** deprecation errors ************************************************/
 
@@ -231,7 +231,8 @@ var eventsModule = createInternalModule('events', function (exports) {
   exports.Promise = function () {
     exports.EventEmitter.call();
     this._blocking = false;
-    this._hasFired = false;
+    this.hasFired = false;
+    this._values = undefined;
   };
   process.inherits(exports.Promise, exports.EventEmitter);
 
@@ -259,7 +260,6 @@ var eventsModule = createInternalModule('events', function (exports) {
 
     this
       .addCallback(onComplete)
-      .addCancelback(onComplete)
       .addErrback(onComplete);
 
     var self = this;
@@ -275,48 +275,45 @@ var eventsModule = createInternalModule('events', function (exports) {
     return this;
   };
 
-  exports.Promise.prototype.cancel = function() {
-    if(this._cancelled) return;
-    this._cancelled = true;
-
-    this._events['success'] = [];
-    this._events['error'] = [];
-
-    this.emitCancel();
-  };
-
-  exports.Promise.prototype.emitCancel = function() {
-    Array.prototype.unshift.call(arguments, 'cancel')
-    this.emit.apply(this, arguments);
-  };
-
   exports.Promise.prototype.emitSuccess = function() {
     if (this.hasFired) return;
     this.hasFired = true;
-    Array.prototype.unshift.call(arguments, 'success')
-    this.emit.apply(this, arguments);
+
+    this._values = Array.prototype.slice.call(arguments);
+    this.emit.apply(this, ['success'].concat(this._values));
   };
 
   exports.Promise.prototype.emitError = function() {
     if (this.hasFired) return;
     this.hasFired = true;
-    Array.prototype.unshift.call(arguments, 'error')
-    this.emit.apply(this, arguments);
+
+    this._values = Array.prototype.slice.call(arguments);
+    this.emit.apply(this, ['error'].concat(this._values));
+
+    if (this.listeners('error').length == 0) {
+      var self = this;
+      process.nextTick(function() {
+        if (self.listeners('error').length == 0) {
+          throw new Error('Unhandled emitError: '+JSON.stringify(self._values));
+        }
+      });
+    }
   };
 
   exports.Promise.prototype.addCallback = function (listener) {
-    this.addListener("success", listener);
-    return this;
+    if (this.hasFired) {
+      return listener.apply(this, this._values);
+    }
+
+    return this.addListener("success", listener);
   };
 
   exports.Promise.prototype.addErrback = function (listener) {
-    this.addListener("error", listener);
-    return this;
-  };
+    if (this.hasFired) {
+      listener.apply(this, this._values);
+    }
 
-  exports.Promise.prototype.addCancelback = function (listener) {
-    this.addListener("cancel", listener);
-    return this;
+    return this.addListener("error", listener);
   };
 
   /* Poor Man's coroutines */
@@ -375,6 +372,30 @@ var eventsModule = createInternalModule('events', function (exports) {
 });
 
 var events = eventsModule.exports;
+
+
+// nextTick()
+
+var nextTickQueue = [];
+var nextTickWatcher = new process.IdleWatcher();
+nextTickWatcher.setPriority(process.EVMAXPRI); // max priority
+
+nextTickWatcher.callback = function () {
+  var l = nextTickQueue.length;
+  while (l--) {
+    var cb = nextTickQueue.shift();
+    cb();
+  }
+  if (nextTickQueue.length == 0) nextTickWatcher.stop();
+};
+
+process.nextTick = function (callback) {
+  nextTickQueue.push(callback);
+  nextTickWatcher.start();
+};
+
+
+
 
 
 // Signal Handlers
@@ -467,17 +488,29 @@ process.Stats.prototype.isSocket = function () {
 
 
 // Timers
+function addTimerListener (callback) {
+  var timer = this;
+  // Special case the no param case to avoid the extra object creation.
+  if (arguments.length > 2) {
+    var args = Array.prototype.slice.call(arguments, 2);
+    timer.addListener("timeout", function(){
+      callback.apply(timer, args);
+    });
+  } else {
+    timer.addListener("timeout", callback);
+  }
+}
 
 GLOBAL.setTimeout = function (callback, after) {
   var timer = new process.Timer();
-  timer.addListener("timeout", callback);
+  addTimerListener.apply(timer, arguments);
   timer.start(after, 0);
   return timer;
 };
 
 GLOBAL.setInterval = function (callback, repeat) {
   var timer = new process.Timer();
-  timer.addListener("timeout", callback);
+  addTimerListener.apply(timer, arguments);
   timer.start(repeat, repeat);
   return timer;
 };
@@ -829,9 +862,9 @@ function loadModule (request, parent) {
     debug("found  " + JSON.stringify(id) + " in cache");
     // In cache
     var module = moduleCache[id];
-    setTimeout(function () {
+    process.nextTick(function () {
       loadPromise.emitSuccess(module.exports);
-    }, 0);
+    });
   } else {
     debug("looking for " + JSON.stringify(id) + " in " + JSON.stringify(paths));
     // Not in cache
@@ -868,11 +901,11 @@ Module.prototype.loadObject = function (filename, loadPromise) {
   var self = this;
   // XXX Not yet supporting loading from HTTP. would need to download the
   // file, store it to tmp then run dlopen on it.
-  setTimeout(function () {
+  process.nextTick(function () {
     self.loaded = true;
     process.dlopen(filename, self.exports); // FIXME synchronus
     loadPromise.emitSuccess(self.exports);
-  }, 0);
+  });
 };
 
 function cat (id, loadPromise) {
@@ -984,10 +1017,6 @@ process.mainModule = createModule(".");
 var loadPromise = new events.Promise();
 process.mainModule.load(process.ARGV[1], loadPromise);
 
-loadPromise.addErrback(function(e) {
-  throw e;
-});
-
 // All our arguments are loaded. We've evaluated all of the scripts. We
 // might even have created TCP servers. Now we enter the main eventloop. If
 // there are no watchers on the loop (except for the ones that were
@@ -997,4 +1026,4 @@ process.loop();
 
 process.emit("exit");
 
-}()); // end annonymous namespace
+}()); // end anonymous namespace
