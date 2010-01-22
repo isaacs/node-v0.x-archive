@@ -42,6 +42,10 @@ enum encoding ParseEncoding(v8::Handle<v8::Value> encoding_v,
                             enum encoding _default = BINARY);
 void FatalException(v8::TryCatch &try_catch);
 
+// Get and set process.exceptionCatcher
+v8::Local<v8::Value> GetProcessExceptionCatcher();
+bool SetProcessExceptionCatcher(v8::Handle<v8::Value> value);
+
 v8::Local<v8::Value> Encode(const void *buf, size_t len,
                             enum encoding encoding = BINARY);
 
