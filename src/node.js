@@ -192,6 +192,18 @@ process.mixin = function() {
   return target;
 };
 
+
+// This stub allows chaining to the previous process.exceptionCatcher
+// without checking that it is a valid function.
+// e.g.:
+//   var oldCatcher = process.exceptionCatcher;
+//   process.exceptionCatcher = function (e) {
+//     if (e instanceof MyError) { ... }
+//     else oldCatcher(e);
+//   }
+process.exceptionCatcher = function (e) { throw e; }
+
+
 // Event
 
 var eventsModule = createInternalModule('events', function (exports) {
@@ -207,6 +219,7 @@ var eventsModule = createInternalModule('events', function (exports) {
       // adding it to the listeners, first emit "newListeners".
       this.emit("newListener", type, listener);
       this._events[type].push(listener);
+      listener._exceptionCatcher = process.exceptionCatcher;
     }
     return this;
   };

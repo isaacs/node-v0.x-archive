@@ -23,6 +23,7 @@ using namespace v8;
 Persistent<FunctionTemplate> EventEmitter::constructor_template;
 
 static Persistent<String> events_symbol;
+static Persistent<String> exception_catcher_symbol;
 
 void EventEmitter::Initialize(Local<FunctionTemplate> ctemplate) {
   HandleScope scope;
@@ -35,6 +36,7 @@ void EventEmitter::Initialize(Local<FunctionTemplate> ctemplate) {
   constructor_template->SetClassName(String::NewSymbol("EventEmitter"));
 
   events_symbol = NODE_PSYMBOL("_events");
+  exception_catcher_symbol = NODE_PSYMBOL("_exceptionCatcher");
 
   // All other prototype methods are defined in events.js
 }
@@ -59,6 +61,7 @@ static bool ReallyEmit(Handle<Object> self,
     Local<Value> listener_v = listeners->Get(Integer::New(i));
     if (!listener_v->IsFunction()) continue;
     Local<Function> listener = Local<Function>::Cast(listener_v);
+    SetProcessExceptionCatcher(listener->Get(exception_catcher_symbol));
 
     TryCatch try_catch;
 

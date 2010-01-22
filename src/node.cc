@@ -57,6 +57,7 @@ static Persistent<String> heap_used_symbol;
 static Persistent<String> listeners_symbol;
 static Persistent<String> uncaught_exception_symbol;
 static Persistent<String> emit_symbol;
+static Persistent<String> exception_catcher_symbol;
 
 static int dash_dash_index = 0;
 static bool use_debug_agent = false;
@@ -818,10 +819,39 @@ static void OnFatalError(const char* location, const char* message) {
   exit(1);
 }
 
+Local<Value> GetProcessExceptionCatcher() {
+  return process->Get(exception_catcher_symbol);
+}
+
+bool SetProcessExceptionCatcher(Handle<Value> value) {
+  return process->Set(exception_catcher_symbol, value);
+}
+
+static int exception_catcher_counter = 0;
 static int uncaught_exception_counter = 0;
 
 void FatalException(TryCatch &try_catch) {
   HandleScope scope;
+
+  // First try process.exceptionCatcher --
+  // if it's a function, and we're not already in it.
+  Local<Value> catcher_v = GetProcessExceptionCatcher();
+  if (0 == exception_catcher_counter && catcher_v->IsFunction()) {
+    exception_catcher_counter++;
+    // Call process.exceptionCatcher(exception). If it throws, FatalException
+    // is reentered with nonzero exception_catcher_counter, and we drop
+    // through to the "uncaughtException" event below, or barf.
+    TryCatch inner_try_catch;
+
+    Local<Function> catcher = Local<Function>::Cast(catcher_v);
+    Local<Value> argv[1] = { try_catch.Exception() };
+    Local<Value> ret = catcher->Call(process, 1, argv);
+    if (inner_try_catch.HasCaught()) {
+      FatalException(inner_try_catch);
+    }
+    exception_catcher_counter--;
+    return;
+  }
 
   // Check if uncaught_exception_counter indicates a recursion
   if (uncaught_exception_counter > 0) {
@@ -976,6 +1006,8 @@ static Local<Object> Load(int argc, char *argv[]) {
   // Assign the EventEmitter. It was created in main().
   process->Set(String::NewSymbol("EventEmitter"),
                EventEmitter::constructor_template->GetFunction());
+
+  exception_catcher_symbol = NODE_PSYMBOL("exceptionCatcher");
 
   // Initialize the stats object
   Local<FunctionTemplate> stat_templ = FunctionTemplate::New();
