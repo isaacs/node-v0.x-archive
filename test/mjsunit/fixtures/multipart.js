@@ -14,51 +14,91 @@ exports.emailHeaders = {
   "Content-Type":"multipart/mixed; boundary=outer"
 };
 exports.emailBody = [
-  "--outer",
-    "Content-Type: multipart/mixed; boundary=inner1",
-    "",
-    "--inner1",
-      "Content-type: multipart/mixed; boundary=inner2",
-      "",
-      "--inner2",
-        "Content-type: text/plain",
-        "content-disposition: inline; filename=\"hello.txt\"",
-        "",
-        "hello, world",
-      "--inner2",
-        "content-type: text/plain",
-        "content-disposition: inline; filename=\"hello2.txt\"",
-        "",
-        "hello to the world",
-      "--inner2--",
-    "--inner1",
-      "Content-type: multipart/mixed; boundary=inner3",
-      "",
-      "--inner3",
-        "Content-type: text/plain",
-        "content-disposition: inline; filename=\"hello3.txt\"",
-        "",
-        "hello, free the world",
-      "--inner3",
-        "content-type: text/plain",
-        "content-disposition: inline; filename=\"hello4.txt\"",
-        "",
-        "hello for the world",
-      "--inner3--",
-    "--inner1",
-      "Content-type: text/plain",
-      "content-disposition: inline; filename=\"hello-outer.txt\"",
-      "",
-      "hello, outer world",
-    "--inner1--",
-  "--outer--"].join("\r\n");
+  // s=new part, part = stream, part.boundary=--outer
+  "--outer",// chomp to here
+    // mint a new part without a boundary, parent=old part, set state to header
+    "Content-Type: multipart/mixed; boundary=inner1",// move along
+    "", // found the end of the header.  chomp to here, parse the headers onto
+        // the current part.  Once we do that, we know that the current part
+        // is multipart, and has a boundary of --inner1
+        // s=new part, part = --inner1
+    "--inner1", // chomp to here.
+      // mint a new part without a boundary, parent=--inner1, s=header
+      "Content-type: multipart/mixed; boundary=inner2", // move along
+      "", // again, found the end of the header.  chomp to here, parse headers
+          // onto the newly minted part.  Then find out that this part has a
+          // boundary of --inner2.
+          // s=new part, part=--inner2
+      "--inner2", // chomp to here.
+        // mint a new part without a boundary, parent=--inner2
+        "Content-type: text/plain", // move along
+        "content-disposition: inline; filename=\"hello.txt\"", // move along
+        "", // chomp to here.  found end of header.  parse headers
+            // then we know that it's not multipart, so we'll be looking for
+            // the parent's boundary and emitting body bits.
+            // also, we can set part.filename to "hello.txt"
+            // s=body, part=hello.txt
+        "hello, world", // chomp, emit the body, looking for parent-boundary
+      "--inner2", // found parent.boundary.  leave it on the buffer, and
+                  // set part=part.parent, s=new part
+                  // on the next pass, we'll chomp to here, mint a new part
+                  // without a boundary, set s=header
+        "content-type: text/plain", // header...
+        "content-disposition: inline; filename=\"hello2.txt\"", // header...
+        "", // chomp to here, parse header onto the current part.
+            // since it's not multipart, we're looking for parent.boundary
+        "hello to the world", // body, looking for parent.boundary=--inner
+      "--inner2--", // found parent.boundary.  In this case, we have the
+                    // trailing --, indicating that no more parts are coming
+                    // for this set.  We need to back up to the grandparent,
+                    // and then do the new part bit.  Chomp off the --inner2--
+                    // s=new part, part=part.parent.parent=--inner1
+    "--inner1", // chomp to here, because this is part.boundary
+                // mint a new part without a boundary
+                // s=header, part = (new)
+      "Content-type: multipart/mixed; boundary=inner3", // header...
+      "", // chomp to here, parse headers onto the new part.
+          // it's multipart, so set the boundary=--inner3,
+          // s=new part, part = --inner3
+      "--inner3", // chomp to here.  mint a new part with no boundary, parse headers
+        "Content-type: text/plain", // header
+        "content-disposition: inline; filename=\"hello3.txt\"", // header
+        "", // end of header. parse headers onto part, whereupon we find that it is
+            // not multipart, and has a filename of hello3.txt.
+            // s=body, part=hello3.txt, looking for part.parent.boundary=--inner3
+        "hello, free the world", // body...
+      "--inner3", // found parent.boundary, and it's not the end.
+                  // s = new part, part = part.parent
+                  // next pass:
+                  // mint a new part without a boundary, s=header
+        "content-type: text/plain", // header
+        "content-disposition: inline; filename=\"hello4.txt\"", // header
+        "", // chomp to here, parse headers on to boundaryless part.
+            // s=body, part = hello4.txt
+        "hello for the world", // body, looking for part.parent.boundary=--inner3
+      "--inner3--", // found parent.boundary, and it's the end
+                    // chomp this off the buffer, part = part.parent.parent=--inner1
+                    // s = new part
+    "--inner1", // chomp to here, because part.boundary = --inner1
+                // mint a new boundariless part, s = header
+      "Content-type: text/plain", // header...
+      "content-disposition: inline; filename=\"hello-outer.txt\"", // header...
+      "", // chomp to here, parse headers onto the current part.
+          // has no boundary, so we're gonna go into body mode.
+          // s = body, boundary = parent.boundary = --inner1, part = hello-outer.txt
+      "hello, outer world", // body, looking for parent.boundary=--inner1
+    "--inner1--", // found the parent.boundary, and it's the end.
+                  // chomp off the --inner1--, part = part.parent.parent, s = new part
+  "--outer--" // we're looking for a new part, but found the ending.
+              // chomp off the --outer--, part = part.parent, s = new part.
+].join("\r\n");
 
 
 
 
 
 
-return;
+// return;
 
 exports.emailHeaders = {
   "Delivered-To":"isaacs...@gmail.com",
