@@ -1167,6 +1167,12 @@ size_t http_parser_execute (http_parser *parser,
       {
         c = lowcase[(int)ch];
 
+        // FIXME: Problem here.
+        // Header values may wrap to the next line by ending with \r\n\s+,
+        // in which case, the header value doesn't end, but should be
+        // appended with a single whitespace character.
+        // See: http://tools.ietf.org/html/rfc2822#section-2.2.3
+
         if (!c) {
           if (ch == CR) {
             CALLBACK(header_value);
