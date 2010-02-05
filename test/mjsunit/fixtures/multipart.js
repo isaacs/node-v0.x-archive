@@ -17,6 +17,11 @@ var messages = exports.messages = [];
 
 messages.push(exports.reply);
 
+// one that's not multipart, just for kicks.
+messages.push({headers: { "content-type" : "text/plain" },
+  body : "Hello, world!"
+});
+
 messages.push({ headers : {
   "Content-Type":"multipart/mixed; boundary=outer"
 }, body : [
