@@ -1,4 +1,7 @@
-exports.reply = ["--AaB03x\r",
+exports.reply = { headers : {
+  "Content-Type": "multipart/form-data; boundary=AaB03x",
+}, body : [
+  "--AaB03x\r",
 "content-disposition: form-data; name=\"reply\"\r",
 "\r",
 "yes\r",
@@ -8,13 +11,17 @@ exports.reply = ["--AaB03x\r",
 "Content-Transfer-Encoding: base64\r",
 "\r",
 "/9j/4AAQSkZJRgABAQAAAQABAAD//gA+Q1JFQVRPUjogZ2QtanBlZyB2MS4wICh1c2luZyBJSkcg\r",
-"--AaB03x--\r\n"].join("\n");
+"--AaB03x--\r\n"].join("\n") };
 
-var emails = exports.emails = [];
+var messages = exports.messages = [];
 
-emails.push({ headers : {
+messages.push(exports.reply);
+
+messages.push({ headers : {
   "Content-Type":"multipart/mixed; boundary=outer"
 }, body : [
+  // these comments tell a story, about what the parser is doing at each step.
+  // if you want to touch the code, it's best to read through this test case first.
   // s=new part, part = stream, part.boundary=--outer
   "--outer",// chomp to here
     // mint a new part without a boundary, parent=old part, set state to header
@@ -95,10 +102,7 @@ emails.push({ headers : {
 ].join("\r\n")});
 
 
-return;
-
-
-emails.push({headers: {
+messages.push({headers: {
   "Delivered-To":"isaacs...@gmail.com",
   "Received":"by 10.142.240.14 with SMTP id n14cs252101wfh; Wed, 3 Feb 2010 14:24:08 -0800 (PST)",
   "Received":"by 10.223.4.139 with SMTP id 11mr194455far.61.1265235847416; Wed, 03 Feb 2010 14:24:07 -0800 (PST)",

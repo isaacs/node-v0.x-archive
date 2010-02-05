@@ -7,11 +7,7 @@ var http = require("http"),
   fixture = require('./fixtures/multipart'),
   events = require("events");
 
-
-// 
-// for (var emails = fixture.emails, i = 0, l = emails.length; i < l; i ++) {
-
-var emails = fixture.emails,
+var emails = fixture.messages,
   chunkSize = 13;
 (function testEmails () {
   var email = emails.pop();
@@ -19,6 +15,10 @@ var emails = fixture.emails,
   
   var message  = new (events.EventEmitter);
   message.headers = email.headers;
+  
+  multipart.cat(message).addCallback(function (message) {
+    sys.puts(sys.inspect(message));
+  });
   
   var mp = multipart.parse(message);
   ["partBegin", "partEnd"].forEach(function (ev) {
