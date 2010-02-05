@@ -8,31 +8,45 @@ var http = require("http"),
   events = require("events");
 
 
-var emailMessage = new events.EventEmitter;
-emailMessage.headers = fixture.emailHeaders;
+// 
+// for (var emails = fixture.emails, i = 0, l = emails.length; i < l; i ++) {
 
-var mp = multipart.parse(emailMessage);
-["complete", "partBegin", "partEnd"].forEach(function (ev) {
-  mp.addListener(ev, function () {
-    sys.error(ev+": "+(mp.part.boundary || mp.part.filename ||
-        JSON.stringify(mp.part.headers)));
+var emails = fixture.emails,
+  chunkSize = 13;
+(function testEmails () {
+  var email = emails.pop();
+  if (!email) return;
+  
+  var message  = new (events.EventEmitter);
+  message.headers = email.headers;
+  
+  var mp = multipart.parse(message);
+  ["partBegin", "partEnd"].forEach(function (ev) {
+    mp.addListener(ev, function () {
+      sys.error(ev+": "+(mp.part.boundary || mp.part.filename ||
+          JSON.stringify(mp.part.headers)));
+    });
   });
-});
-// mp.addListener("body", function (c) {
-//   sys.error("body: "+
-//     (mp.part.name || mp.part.filename || "") +" "+JSON.stringify(c));
-// });
+  mp.addListener("complete", function () {
+    sys.error("complete: "+mp.part.boundary);
+    process.nextTick(testEmails);
+  });
+  mp.addListener("body", function (chunk) {
+    if (mp.part.filename) {
+      sys.error("\t\t"+mp.part.filename + " ----- " + JSON.stringify(chunk));
+    }
+  });
+  
+  // stream it through in chunks.
+  var emailBody = email.body;
+  process.nextTick(function s () {
+    if (emailBody) {
+      message.emit("body", emailBody.substr(0, chunkSize));
+      emailBody = emailBody.substr(chunkSize);
+      process.nextTick(s);
+    } else {
+      message.emit("complete");
+    }
+  });
 
-
-
-var emailBody = fixture.emailBody,
-  chunkSize = 1;
-process.nextTick(function s () {
-  if (emailBody) {
-    emailMessage.emit("body", emailBody.substr(0, chunkSize));
-    emailBody = emailBody.substr(chunkSize);
-    process.nextTick(s);
-  } else {
-    emailMessage.emit("complete");
-  }
-});
+})();

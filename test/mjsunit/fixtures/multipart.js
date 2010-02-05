@@ -10,10 +10,11 @@ exports.reply = ["--AaB03x\r",
 "/9j/4AAQSkZJRgABAQAAAQABAAD//gA+Q1JFQVRPUjogZ2QtanBlZyB2MS4wICh1c2luZyBJSkcg\r",
 "--AaB03x--\r\n"].join("\n");
 
-exports.emailHeaders = {
+var emails = exports.emails = [];
+
+emails.push({ headers : {
   "Content-Type":"multipart/mixed; boundary=outer"
-};
-exports.emailBody = [
+}, body : [
   // s=new part, part = stream, part.boundary=--outer
   "--outer",// chomp to here
     // mint a new part without a boundary, parent=old part, set state to header
@@ -91,16 +92,13 @@ exports.emailBody = [
                   // chomp off the --inner1--, part = part.parent.parent, s = new part
   "--outer--" // we're looking for a new part, but found the ending.
               // chomp off the --outer--, part = part.parent, s = new part.
-].join("\r\n");
+].join("\r\n")});
 
 
+return;
 
 
-
-
-// return;
-
-exports.emailHeaders = {
+emails.push({headers: {
   "Delivered-To":"isaacs...@gmail.com",
   "Received":"by 10.142.240.14 with SMTP id n14cs252101wfh; Wed, 3 Feb 2010 14:24:08 -0800 (PST)",
   "Received":"by 10.223.4.139 with SMTP id 11mr194455far.61.1265235847416; Wed, 03 Feb 2010 14:24:07 -0800 (PST)",
@@ -131,9 +129,7 @@ exports.emailHeaders = {
   "Subject":"Me on my unicycle",
   "To":"i@izs.me",
   "Content-Type":"multipart/mixed; boundary=0016e6d99d0572dfaf047eb9ac2e",
-};
-
-exports.emailBody = [
+}, body : [
 "--0016e6d99d0572dfaf047eb9ac2e", // beginpart->header
 "Content-Type: multipart/alternative; boundary=0016e6d99d0572dfa5047eb9ac2c", // headers. isMultipart
 "", // bodybegin->beginpart
@@ -638,5 +634,4 @@ exports.emailBody = [
 "tQ0u0hsrwXCL5kY7E8jHSvapcUUJ4z6o6bve1+hxVsoqU4cymeSvYw5UlAcNRUNhczT226V97cck",
 "CivqJ00meTzNH//Z",
 "--0016e6d99d0572dfaf047eb9ac2e--",//partend, then complete
-""].join("\r\n");
-
+""].join("\r\n")});
