@@ -15,7 +15,7 @@ var http = require("http"),
       assert.equal(expect[i], part[i]);
     }
   };
-  
+
 var emails = fixture.messages.slice(0),
   chunkSize = 1, // set to minimum to forcibly expose boundary conditions.
                  // in a real scenario, this would be much much bigger.
@@ -30,10 +30,10 @@ var emails = fixture.messages.slice(0),
     return;
   }
   var expect = email.expect;
-  
+
   var message  = new (events.EventEmitter);
   message.headers = email.headers;
-  
+
   var mp = multipart.parse(message);
   mp.addListener("partBegin", function (part) {
     testPart(email.expect[curr ++], part);
@@ -99,7 +99,7 @@ firstPart.addCallback(function testGoodMessages () {
         process.nextTick(testHTTP);
       });
     });
-  });  
+  });
 });
 secondPart.addCallback(function testBadMessages () {
   var httpMessages = fixture.badMessages.slice(0);

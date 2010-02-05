@@ -35,7 +35,7 @@ bad.push({
   headers : { "Content-Type":"multipart/mixed; boundary=boundary" },
   body : "--boundary\r\n  fail: blahrg\r\n\r\n"+longString
 });
-  
+
 // The comments in this first test case tell a story about what the parser is
 // doing at each step.  If you mean to touch the code, it's best to read through
 // this test case first so that you know what you're getting into.
@@ -130,7 +130,7 @@ messages.push({
                     // chomp off the --inner1--, part = part.parent.parent, s = new part
     "--outer--" // we're looking for a new part, but found the ending.
                 // chomp off the --outer--, part = part.parent, s = new part.
-  ].join("\r\n") 
+  ].join("\r\n")
 });
 
 messages.push({
@@ -153,7 +153,7 @@ messages.push({
   expect : [
     { name : "reply" },
     { name : "fileupload", filename : "dj.jpg" }
-  ] 
+  ]
 });
 
 // one that's not multipart, just for kicks.
@@ -161,7 +161,7 @@ messages.push({
 messages.push({
   headers: { "content-type" : "text/plain" },
   body : "Hello, world!",
-  
+
   // not much to say about this one, since it's just
   // validating that a part was created, not that it has
   // any particular properties.
