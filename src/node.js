@@ -276,7 +276,7 @@ process.unwatchFile = function (filename) {
   if (filename in statWatchers) {
     stat = statWatchers[filename];
     stat.stop();
-    statWatchers[filename] = undefined;
+    delete statWatchers[filename];
   }
 };
 
