@@ -182,7 +182,7 @@ static Handle<Value> Stat(const Arguments& args) {
     ASYNC_CALL(stat, args[1], *path)
   } else {
     struct stat s;
-    int ret = stat(*path, &s);
+    int ret = lstat(*path, &s);
     if (ret != 0) return ThrowException(errno_exception(errno));
     return scope.Close(BuildStatsObject(&s));
   }
