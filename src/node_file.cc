@@ -72,6 +72,7 @@ static int After(eio_req *req) {
         break;
 
       case EIO_STAT:
+      case EIO_LSTAT:
       {
         struct stat *s = reinterpret_cast<struct stat*>(req->ptr2);
         argc = 2;
