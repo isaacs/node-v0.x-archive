@@ -182,6 +182,25 @@ static Handle<Value> Stat(const Arguments& args) {
     ASYNC_CALL(stat, args[1], *path)
   } else {
     struct stat s;
+    int ret = stat(*path, &s);
+    if (ret != 0) return ThrowException(errno_exception(errno));
+    return scope.Close(BuildStatsObject(&s));
+  }
+}
+
+static Handle<Value> LStat(const Arguments& args) {
+  HandleScope scope;
+
+  if (args.Length() < 1 || !args[0]->IsString()) {
+    return THROW_BAD_ARGS;
+  }
+
+  String::Utf8Value path(args[0]->ToString());
+
+  if (args[1]->IsFunction()) {
+    ASYNC_CALL(lstat, args[1], *path)
+  } else {
+    struct stat s;
     int ret = lstat(*path, &s);
     if (ret != 0) return ThrowException(errno_exception(errno));
     return scope.Close(BuildStatsObject(&s));
@@ -488,6 +507,7 @@ void File::Initialize(Handle<Object> target) {
   NODE_SET_METHOD(target, "sendfile", SendFile);
   NODE_SET_METHOD(target, "readdir", ReadDir);
   NODE_SET_METHOD(target, "stat", Stat);
+  NODE_SET_METHOD(target, "lstat", LStat);
   NODE_SET_METHOD(target, "unlink", Unlink);
   NODE_SET_METHOD(target, "write", Write);
   
