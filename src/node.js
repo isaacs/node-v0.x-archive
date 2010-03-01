@@ -86,7 +86,31 @@ process.createChildProcess = function (file, args, env) {
   // TODO Note envPairs is not currently used in child_process.cc. The PATH
   // needs to be searched for the 'file' command if 'file' does not contain
   // a '/' character.
-  child.spawn(file, args, envPairs);
+  if (file.indexOf("/") !== -1) {
+    child.spawn(file, args, envPairs);
+    return child;
+  }
+  // search env.PATH for file.
+  var paths = process.env.PATH.split(":");
+  (function searchPath (i) {
+    var p = paths[i];
+    if (!p) {
+      // file not found. give up, and probably error out.
+      return child.spawn(file, args, envPairs);
+    }
+    var f = path.join(p, file);
+    fs.stat(f, function (er, stats) {
+      if (er) return searchPath(i + 1);
+      // file exists.  check that it's executable by me.
+      if (
+        (stats.mode & 5 === 5)
+        || (stats.mode & 050 === 050 && stats.gid === process.getgid())
+        || (stats.mode & 0500 === 0500 && stats.uid === process.getuid())) {
+        return child.spawn(f, args, envPairs);
+      }
+      return searchPath(i + 1);
+    });
+  })(0);
   return child;
 };
 
