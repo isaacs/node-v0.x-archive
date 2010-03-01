@@ -83,9 +83,7 @@ process.createChildProcess = function (file, args, env) {
       envPairs.push(key + "=" + env[key]);
     }
   }
-  // TODO Note envPairs is not currently used in child_process.cc. The PATH
-  // needs to be searched for the 'file' command if 'file' does not contain
-  // a '/' character.
+
   if (file.indexOf("/") !== -1) {
     child.spawn(file, args, envPairs);
     return child;
