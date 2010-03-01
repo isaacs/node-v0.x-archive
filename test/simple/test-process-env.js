@@ -6,7 +6,9 @@ var childOutput = "",
 
 process.env.PATH += ":" + path.join(__dirname, "../fixtures");
 
-process.createChildProcess("child-env.js", [], {
+sys.debug(process.env.PATH);
+
+process.createChildProcess("child-env.sh", [], {
   for_the_child : "a pretty present" })
   .addListener("error", function (chunk) {
     if (chunk) childOutput += chunk;
