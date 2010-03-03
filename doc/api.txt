@@ -446,14 +446,15 @@ Node provides a tridirectional +popen(3)+ facility through the class
                             +"error"+ callbacks will no longer be made.
 |=========================================================
 
-+process.createChildProcess(command, args=[], env=process.env)+::
++process.createChildProcess(command, args=[], env=process.env, cb)+::
 Launches a new process with the given +command+, command line arguments, and
 environmental variables. For example:
 +
 ----------------------------------------
-var ls = process.createChildProcess("ls", ["-lh", "/usr"]);
-ls.addListener("output", function (data) {
-  sys.puts(data);
+process.createChildProcess("ls", ["-lh", "/usr"], function (ls) {
+  ls.addListener("output", function (data) {
+    sys.puts(data);
+  });
 });
 ----------------------------------------
 +

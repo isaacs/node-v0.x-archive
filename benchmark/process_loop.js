@@ -5,15 +5,15 @@ process.mixin(require("sys"));
 function next (i) {
   if (i <= 0) return;
 
-  var child = process.createChildProcess("echo", ["hello"]);
+  process.createChildProcess("echo", ["hello"], function (child) {
+    child.addListener("output", function (chunk) {
+      if (chunk) print(chunk);
+    });
 
-  child.addListener("output", function (chunk) {
-    if (chunk) print(chunk);
-  });
-
-  child.addListener("exit", function (code) {
-    if (code != 0) process.exit(-1);
-    next(i - 1);
+    child.addListener("exit", function (code) {
+      if (code != 0) process.exit(-1);
+      next(i - 1);
+    });
   });
 }
 

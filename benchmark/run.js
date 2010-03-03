@@ -11,11 +11,13 @@ var benchmark_dir = path.dirname(__filename);
 
 function exec (script, callback) {
   var start = new Date();
-  var child = process.createChildProcess(process.ARGV[0], [path.join(benchmark_dir, script)]);
-  child.addListener("exit", function (code) {
-    var elapsed = new Date() - start;
-    callback(elapsed, code);
-  });
+  process.createChildProcess(process.ARGV[0], [path.join(benchmark_dir, script)],
+    function (child) {
+      child.addListener("exit", function (code) {
+        var elapsed = new Date() - start;
+        callback(elapsed, code);
+      });
+    });
 }
 
 function runNext (i) {

@@ -72,11 +72,23 @@ function createInternalModule (id, constructor) {
   return m;
 };
 
-
-process.createChildProcess = function (file, args, env) {
+function noop () {};
+process.createChildProcess = function (file, args, env, cb) {
   var child = new process.ChildProcess();
-  args = args || [];
-  env = env || process.env;
+  var params = Array.prototype.slice.call(arguments, 1);
+  cb = params.pop();
+  if (typeof cb !== "function") {
+    // rare
+    params.push(cb);
+    cb = noop;
+  }
+  if (Array.isArray(params[0])) {
+    args = params.shift();
+  } else {
+    args = [];
+  }
+  env = params[0] || process.env;
+  
   var envPairs = [];
   for (var key in env) {
     if (env.hasOwnProperty(key)) {
@@ -86,9 +98,11 @@ process.createChildProcess = function (file, args, env) {
 
   if (file.indexOf("/") !== -1) {
     child.spawn(file, args, envPairs);
-    return child;
+    cb(child);
+    return;
   }
   // search env.PATH for file.
+  // TODO: Should this perhaps be in the fs module?
   var paths = process.env.PATH.split(":"),
     groups = process.getgroups(),
     uid = process.getuid();
@@ -96,9 +110,11 @@ process.createChildProcess = function (file, args, env) {
     var p = paths[i];
     if (!p) {
       // file not found. give up, and probably error out.
-      return child.spawn(file, args, envPairs);
+      child.spawn(file, args, envPairs);
+      cb(child);
+      return;
     }
-    var f = path.join(p, file);
+    var f = path.join(p, file)
     fs.stat(f, function (er, stats) {
       var executable = (!er) && ( // file exists. check executableness
         // if the process UID === owner, then must u+rx
@@ -109,10 +125,14 @@ process.createChildProcess = function (file, args, env) {
         : stats.mode & 0005 === 0005
       );
       // if not executable, then try the next path
-      return executable ? child.spawn(f, args, envPairs) : searchPath(i + 1);
+      if (executable) {
+        child.spawn(f, args, envPairs);
+        cb(child);
+      } else {
+        searchPath(i + 1);
+      }
     });
   })(0);
-  return child;
 };
 
 process.assert = function (x, msg) {
