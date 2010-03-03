@@ -89,7 +89,9 @@ process.createChildProcess = function (file, args, env) {
     return child;
   }
   // search env.PATH for file.
-  var paths = process.env.PATH.split(":");
+  var paths = process.env.PATH.split(":"),
+    groups = process.getgroups(),
+    uid = process.getuid();
   (function searchPath (i) {
     var p = paths[i];
     if (!p) {
@@ -98,15 +100,16 @@ process.createChildProcess = function (file, args, env) {
     }
     var f = path.join(p, file);
     fs.stat(f, function (er, stats) {
-      if (er) return searchPath(i + 1);
-      // file exists.  check that it's executable by me.
-      if (
-        (stats.mode & 5 === 5)
-        || (stats.mode & 050 === 050 && stats.gid === process.getgid())
-        || (stats.mode & 0500 === 0500 && stats.uid === process.getuid())) {
-        return child.spawn(f, args, envPairs);
-      }
-      return searchPath(i + 1);
+      var executable = (!er) && ( // file exists. check executableness
+        // if the process UID === owner, then must u+rx
+        stats.uid === uid ? stats.mode & 0500 === 0500
+        // else, if the gid in the group list, then must g+rx
+        : groups.indexOf(stats.gid) !== -1 ? stats.mode & 0050 === 0050
+        // else, must be o+rx
+        : stats.mode & 0005 === 0005
+      );
+      // if not executable, then try the next path
+      return executable ? child.spawn(f, args, envPairs) : searchPath(i + 1);
     });
   })(0);
   return child;
