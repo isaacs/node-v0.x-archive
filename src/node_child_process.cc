@@ -315,11 +315,9 @@ int ChildProcess::Spawn(const char *file, char *const args[], char *const env[])
       close(stdin_pipe[1]);  // close write end
       dup2(stdin_pipe[0],  STDIN_FILENO);
 
-      execvp(file, args);
-      perror("execvp()");
+      execve(file, args, env); // PATH searched in JS-land.
+      perror("execve()");
       _exit(127);
-
-      // TODO search PATH and use: execve(file, argv, env);
   }
 
   // Parent.
