@@ -115,7 +115,7 @@ process.createChildProcess = function (file, args, env, cb) {
       return;
     }
     var f = path.join(p, file)
-    fs.stat(f, function (er, stats) {
+    process.fs.stat(f, function (er, stats) {
       var executable = (!er) && ( // file exists. check executableness
         // if the process UID === owner, then must u+rx
         stats.uid === uid ? stats.mode & 0500 === 0500
