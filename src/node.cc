@@ -494,18 +494,18 @@ static Handle<Value> GetGid(const Arguments& args) {
   return scope.Close(Integer::New(gid));
 }
 
-#ifndef NGROUPS
-#  define NGROUPS 32
+#ifndef NGROUPS_MAX
+#  define NGROUPS_MAX 32
 #endif
 static Handle<Value> GetGroups(const Arguments& args) {
   HandleScope scope;
   int n, i;
-  gid_t list[NGROUPS];
+  gid_t list[NGROUPS_MAX];
 
-  n = getgroups(NGROUPS, list);
+  n = getgroups(NGROUPS_MAX, list);
   if (n == -1) {
     return ThrowException(Exception::Error(
-	  String::New("couldn't get group ids")));
+	  String::New(strerror(errno))));
   }
 
   Handle<Array> groups = Array::New(n);
@@ -513,6 +513,29 @@ static Handle<Value> GetGroups(const Arguments& args) {
     groups->Set(Integer::New(i), Integer::New(list[i]));
   }
   return groups;
+}
+
+static Handle<Value> SetGroups(const Arguments& args) {
+  HandleScope scope;
+  int l = args.Length();
+  if (l < 1) {
+    return ThrowException(Exception::Error(
+    String::New("setgroups requires 1 or more group id(s)")));
+  }
+  if (l > NGROUPS_MAX) {
+    return ThrowException(Exception::Error(
+      String::New("setgroups: too many arguments")));
+  }
+  gid_t * gidset = new gid_t[ l ];
+  int i = 0;
+  int result;
+  for (i = 0; i < l; i ++) {
+    gidset[i] = args[i]->ToInteger()->Int32Value();
+  }
+  if ((result = setgroups(l, gidset)) != 0) {
+    return ThrowException(Exception::Error(String::New(strerror(errno))));
+  }
+  return Undefined();
 }
 
 static Handle<Value> SetGid(const Arguments& args) {
@@ -1081,6 +1104,7 @@ static void Load(int argc, char *argv[]) {
   NODE_SET_METHOD(process, "setgid", SetGid);
   NODE_SET_METHOD(process, "getgid", GetGid);
   NODE_SET_METHOD(process, "getgroups", GetGroups);
+  NODE_SET_METHOD(process, "setgroups", SetGroups);
 
   NODE_SET_METHOD(process, "umask", Umask);
   NODE_SET_METHOD(process, "dlopen", DLOpen);
