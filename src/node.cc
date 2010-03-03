@@ -494,6 +494,26 @@ static Handle<Value> GetGid(const Arguments& args) {
   return scope.Close(Integer::New(gid));
 }
 
+#ifndef NGROUPS
+#  define NGROUPS 32
+#endif
+static Handle<Value> GetGroups(const Arguments& args) {
+  HandleScope scope;
+  int n, i;
+  gid_t list[NGROUPS];
+
+  n = getgroups(NGROUPS, list);
+  if (n == -1) {
+    return ThrowException(Exception::Error(
+	  String::New("couldn't get group ids")));
+  }
+
+  Handle<Array> groups = Array::New(n);
+  for (i = 0; i < n; i ++) {
+    groups->Set(Integer::New(i), Integer::New(list[i]));
+  }
+  return groups;
+}
 
 static Handle<Value> SetGid(const Arguments& args) {
   HandleScope scope;
@@ -1060,6 +1080,7 @@ static void Load(int argc, char *argv[]) {
 
   NODE_SET_METHOD(process, "setgid", SetGid);
   NODE_SET_METHOD(process, "getgid", GetGid);
+  NODE_SET_METHOD(process, "getgroups", GetGroups);
 
   NODE_SET_METHOD(process, "umask", Umask);
   NODE_SET_METHOD(process, "dlopen", DLOpen);
