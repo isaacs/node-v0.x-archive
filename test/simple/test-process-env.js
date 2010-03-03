@@ -1,25 +1,16 @@
 process.mixin(require("../common"));
-
-var childOutput = "",
-  sys = require("sys"),
-  path = require("path");
-
-process.env.PATH += ":" + path.join(__dirname, "../fixtures");
-
-sys.debug(process.env.PATH);
-
-process.createChildProcess("child-env.sh", [], {
-  for_the_child : "a pretty present" })
-  .addListener("error", function (chunk) {
-    if (chunk) childOutput += chunk;
-  })
-  .addListener("output", function (chunk) {
-    if (chunk) childOutput += chunk;
-  })
-  .addListener("exit", function (code) {
-    if (code) throw new Error("failed with "+code);
-    else {
-      assert.equal("a pretty present", childOutput);
-      sys.puts("ok");
+var child = process.createChildProcess('/usr/bin/env', [], {'HELLO' : 'WORLD'}),
+  response = "";
+child.addListener("output", function (chunk) {
+  puts("stdout: " + JSON.stringify(chunk));
+  if (chunk) {
+    response += chunk;
+    if (response === "HELLO=WORLD\n") {
+      puts("closing");
+      child .close();
     }
-  });
+  }
+});
+process.addListener('exit', function () {
+  assert.ok(response.indexOf('HELLO=WORLD') >= 0);
+});
