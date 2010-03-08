@@ -99,7 +99,15 @@ process.assert = function (x, msg) {
 // Dual licensed under the MIT and GPL licenses.
 // http://docs.jquery.com/License
 // Modified for node.js (formely for copying properties correctly)
+// v0.1.32 Marked for deprecation.
+// TODO: Remove this asap (v0.1.33 or later)
 process.mixin = function() {
+  // since this function recurses, warning repeatedly would be a bit much.
+  if (arguments.callee.caller !== arguments.callee) {
+    process.stdio.writeError(
+      "process.mixin is deprecated and will go away soon. Please update your code\n");
+  }
+
   // copy reference to target object
   var target = arguments[0] || {}, i = 1, length = arguments.length, deep = false, source;
 
