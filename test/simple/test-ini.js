@@ -24,6 +24,8 @@ fs.readFile(p,function(err, data) {
       { "this has whitespace" : "yep"
       , "just a flag, no value." : true
       }
+    , "section=value" :
+      { "this section" : "has a value" }
     , "section" :
       { "one" : "two"
       , "Foo" : "Bar"
