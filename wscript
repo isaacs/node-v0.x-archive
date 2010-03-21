@@ -7,7 +7,7 @@ from os.path import join, dirname, abspath
 from logging import fatal
 
 cwd = os.getcwd()
-VERSION="0.1.32"
+VERSION="0.1.33"
 APPNAME="node.js"
 
 import js2c
@@ -125,8 +125,8 @@ def configure(conf):
   #if Options.options.debug:
   #  conf.check(lib='profiler', uselib_store='PROFILER')
 
-  #if Options.options.efence:
-  #  conf.check(lib='efence', libpath=['/usr/lib', '/usr/local/lib'], uselib_store='EFENCE')
+  if Options.options.efence:
+    conf.check(lib='efence', libpath=['/usr/lib', '/usr/local/lib'], uselib_store='EFENCE')
 
   if not conf.check(lib="execinfo", libpath=['/usr/lib', '/usr/local/lib'], uselib_store="EXECINFO"):
     # Note on Darwin/OS X: This will fail, but will still be used as the
@@ -337,10 +337,37 @@ def build(bld):
     coupling.clone("debug")
 
   ### src/native.cc
+  def make_macros(loc, content):
+    f = open(loc, 'w')
+    f.write(content)
+    f.close
+
+  macros_loc_debug   = join(
+     bld.srcnode.abspath(bld.env_of_name("debug")),
+     "macros.py"
+  )
+
+  macros_loc_default = join(
+    bld.srcnode.abspath(bld.env_of_name("default")),
+    "macros.py"
+  )
+
+  make_macros(macros_loc_debug, "")  # leave debug(x) as is in debug build
+  # replace debug(x) with nothing in release build
+  make_macros(macros_loc_default, "macro debug(x) = ;\n")
+
   def javascript_in_c(task):
     env = task.env
     source = map(lambda x: x.srcpath(env), task.inputs)
     targets = map(lambda x: x.srcpath(env), task.outputs)
+    source.append(macros_loc_default)
+    js2c.JS2C(source, targets)
+
+  def javascript_in_c_debug(task):
+    env = task.env
+    source = map(lambda x: x.srcpath(env), task.inputs)
+    targets = map(lambda x: x.srcpath(env), task.outputs)
+    source.append(macros_loc_debug)
     js2c.JS2C(source, targets)
 
   native_cc = bld.new_task_gen(
@@ -356,7 +383,8 @@ def build(bld):
   # where.)
   if bld.env["USE_DEBUG"]:
     native_cc_debug = native_cc.clone("debug")
-    native_cc_debug.rule = javascript_in_c
+    native_cc_debug.rule = javascript_in_c_debug
+
   native_cc.rule = javascript_in_c
 
   ### node lib
@@ -365,6 +393,10 @@ def build(bld):
   node.target       = "node"
   node.source = """
     src/node.cc
+    src/node_buffer.cc
+    src/node_http_parser.cc
+    src/node_net2.cc
+    src/node_io_watcher.cc
     src/node_child_process.cc
     src/node_constants.cc
     src/node_dns.cc
