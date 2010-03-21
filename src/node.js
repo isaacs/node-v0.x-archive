@@ -208,7 +208,7 @@ function debug (x) {
 var stdout;
 process.__defineGetter__('stdout', function () {
   if (stdout) return stdout;
-  var net = requireNative('net');
+  var net = module.requireNative('net');
   stdout = new net.Stream(process.binding('stdio').stdoutFD);
   return stdout;
 });
@@ -216,7 +216,7 @@ process.__defineGetter__('stdout', function () {
 var stdin;
 process.openStdin = function () {
   if (stdin) return stdin;
-  var net = requireNative('net');
+  var net = module.requireNative('net');
   var fd = process.binding('stdio').openStdin();
   stdin = new net.Stream(fd);
   stdin.resume();
