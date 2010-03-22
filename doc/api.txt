@@ -1946,6 +1946,31 @@ repl.start();
 repl.scope.count = count;
 ------------------------------------
 
+== INI Module
+
+This module contains utilities for parsing INI files.  It only supports a rather small subset of the typical INI file syntax at this time.  It supports sections in square braces and line-comments with semicolons.  If a value is specified after the = sign, then the key is set to that value.  If no = sign is present, then the value is set to +true+.  The default "root" section is set to "-".  Extraneous whitespace is stripped.
+------------------------------------
+var iniString =
+  "rootkey = rootval\n"+
+  " rootflag \n"+
+  "[section]\n"+
+  "sectionkey = sectionval\n",
+  ini = require("ini"),
+  sys = require("sys");
+sys.puts(sys.inspect(ini.parse(iniString)));
+
+// outputs:
+// { '-': { rootkey: 'rootval', rootflag: true }
+// , section: { sectionkey: 'sectionval' }
+// }
+------------------------------------
+
++ini.parse+::
+Convert a string of INI content into an object.
+
++ini.stringify+::
+Convert a parsed object into an INI string, suitable for writing back to a file.
+
 == Addons
 
 Addons are dynamically linked shared objects. They can provide glue to C and
