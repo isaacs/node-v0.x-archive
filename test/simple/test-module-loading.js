@@ -86,6 +86,26 @@ debug("load modules by absolute id, then change require.paths, and load another 
 var foo = require("../fixtures/require-path/p1/foo");
 process.assert(foo.bar.expect === foo.bar.actual);
 
+debug("require.uncached to bypass the module cache");
+var a1 = require.uncached("../fixtures/a"),
+  a2 = require.uncached("../fixtures/a");
+assert.notEqual(a1, a2, "uncached modules should be referentially different 1");
+debug("asynchronous require.uncached");
+require.async.uncached("../fixtures/a", function (er1, a1) {
+  if (er1) throw er1;
+  require.async.uncached("../fixtures/a", function (er2, a2) {
+    if (er2) throw er2;
+    assert.notEqual(a1, a2, "uncached modules should be referentially different 2");
+  });
+});
+require.uncached.async("../fixtures/a", function (er1, a1) {
+  if (er1) throw er1;
+  require.uncached.async("../fixtures/a", function (er2, a2) {
+    if (er2) throw er2;
+    assert.notEqual(a1, a2, "uncached modules should be referentially different 3");
+  });
+});
+
 process.addListener("exit", function () {
   assert.equal(true, a.A instanceof Function);
   assert.equal("A done", a.A());
