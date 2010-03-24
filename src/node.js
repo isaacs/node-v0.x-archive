@@ -1,8 +1,9 @@
 (function (process) {
 
-process.global.process = process;
-process.global.global = process.global;
-global.GLOBAL = global;
+var GLOBAL = {};
+GLOBAL.global = GLOBAL.GLOBAL = GLOBAL;
+GLOBAL.process = process;
+process.global = process.GLOBAL = GLOBAL;
 
 /** deprecation errors ************************************************/
 
@@ -22,7 +23,7 @@ process.error = removed("process.error() has moved. Use require('sys') to bring 
 process.watchFile = removed("process.watchFile() has moved to fs.watchFile()");
 process.unwatchFile = removed("process.unwatchFile() has moved to fs.unwatchFile()");
 
-GLOBAL.node = {};
+var node = GLOBAL.node = {};
 
 node.createProcess = removed("node.createProcess() has been changed to process.createChildProcess() update your code");
 process.createChildProcess = removed("childProcess API has changed. See doc/api.txt.");
@@ -117,9 +118,9 @@ var cwd = process.cwd();
 
 // bootstrap the module loading system.
 var module = {};
-process.compile("(function (exports) {"
+process.compile("(function (GLOBAL, exports, process) {"
                + process.binding("natives").module
-               + "\n});", "module")(module);
+               + "\n});", "module")(GLOBAL, module, process);
 
 // nextTick()
 
@@ -173,27 +174,27 @@ function addTimerListener (callback) {
   }
 }
 
-global.setTimeout = function (callback, after) {
+var setTimeout = GLOBAL.setTimeout = function (callback, after) {
   var timer = new process.Timer();
   addTimerListener.apply(timer, arguments);
   timer.start(after, 0);
   return timer;
 };
 
-global.setInterval = function (callback, repeat) {
+var setInterval = GLOBAL.setInterval = function (callback, repeat) {
   var timer = new process.Timer();
   addTimerListener.apply(timer, arguments);
   timer.start(repeat, repeat);
   return timer;
 };
 
-global.clearTimeout = function (timer) {
+var clearTimeout = GLOBAL.clearTimeout = function (timer) {
   if (timer instanceof process.Timer) {
     timer.stop();
   }
 };
 
-global.clearInterval = global.clearTimeout;
+var clearInterval = GLOBAL.clearInterval = GLOBAL.clearTimeout;
 
 var debugLevel = 0;
 if ("NODE_DEBUG" in process.env) debugLevel = 1;
