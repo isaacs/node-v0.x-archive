@@ -47,7 +47,6 @@ server.on("close", function () {
   }
 });
 server.bind(server_port);
-
-timer = setTimeout(function () {
-    throw new Error("Timeout");
-}, 200);
+timer = setTimeout(function T () {
+  throw new Error("Timeout");
+}, 5000);

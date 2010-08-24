@@ -1,11 +1,13 @@
 
 MIMIC_SLOW_SERVER = global.MIMIC_SLOW_SERVER || false;
 
-require('../common');
-net = require('net');
-http = require('http');
-url = require('url');
-qs = require('querystring');
+var common = require('../common');
+var assert = require('assert');
+var fixturesDir = common.fixturesDir;
+var net = require('net');
+var http = require('http');
+var url = require('url');
+var qs = require('querystring');
 var fs = require('fs');
 var sys = require('sys');
 
@@ -72,9 +74,9 @@ var https_server = http.createServer(function (req, res) {
   });
 });
 https_server.setSecure(credentials);
-https_server.listen(PORT);
+https_server.listen(common.PORT);
 
-var c = http.createClient(PORT);
+var c = http.createClient(common.PORT);
 c.setEncoding('utf8');
 c.setSecure(credentials);
 

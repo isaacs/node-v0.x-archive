@@ -1,5 +1,5 @@
-common = require("../common");
-assert = common.assert
+var common = require("../common");
+var assert = common.assert;
 
 baseFoo = "foo";
 global.baseBar = "bar";
@@ -14,3 +14,9 @@ var module = require("../fixtures/global/plain"),
 assert.equal("foo", fooBar.foo, "x -> global.x in sub level not working");
 
 assert.equal("bar", fooBar.bar, "global.x -> x in sub level not working");
+
+// cleanup
+delete global.baseFoo;
+delete global.baseBar;
+delete global.foo;
+delete global.bar;

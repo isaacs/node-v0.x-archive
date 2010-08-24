@@ -1,12 +1,12 @@
-common = require('../common');
-assert = common.assert;
-var exec = require('child_process').exec,
-    sys = require('sys');
-success_count = 0;
-error_count = 0;
-response = "";
+var common = require('../common');
+var assert = common.assert;
+var exec = require('child_process').exec;
+var sys = require('sys');
+var success_count = 0;
+var error_count = 0;
+var response = "";
 
-child = exec('/usr/bin/env', { env: {'HELLO' : 'WORLD'}}, function (err, stdout, stderr) {
+var child = exec('/usr/bin/env', { env: {'HELLO' : 'WORLD'}}, function (err, stdout, stderr) {
   if (err) {
     error_count++;
     console.log('error!: ' + err.code);

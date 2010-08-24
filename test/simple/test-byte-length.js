@@ -1,5 +1,5 @@
-common = require("../common");
-assert = common.assert
+var common = require("../common");
+var assert = common.assert
 
 assert.equal(14, process._byteLength("Il était tué"));
 assert.equal(14, process._byteLength("Il était tué", "utf8"));

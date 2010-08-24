@@ -1,5 +1,6 @@
 var c = require("./b/c");
 
+var common = require("../common")
 common.debug("load fixtures/a.js");
 
 var string = "A";

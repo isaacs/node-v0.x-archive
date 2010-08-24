@@ -1,5 +1,7 @@
-common = require("../common");
-assert = common.assert
+var common = require("../common");
+var assert = common.assert
+
+var a;
 
 setTimeout(function () {
   a = require("../fixtures/a");

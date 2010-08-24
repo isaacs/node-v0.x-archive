@@ -1,5 +1,5 @@
-common = require("../common");
-assert = common.assert;
+var common = require("../common");
+var assert = common.assert;
 
 var stdout_write = global.process.stdout.write;
 var strings = [];

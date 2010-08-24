@@ -1,5 +1,5 @@
-common = require("../common");
-assert = common.assert
+var common = require("../common");
+var assert = common.assert
 
 var spawn = require('child_process').spawn;
 
@@ -15,9 +15,9 @@ function pwd (callback) {
     output += s;
   });
 
-  child.addListener("exit", function (c) {
-    console.log("exit: " + c);
-    assert.equal(0, c);
+  child.addListener("exit", function (x) {
+    console.log("exit: " + x);
+    assert.equal(0, x);
     callback(output);
     pwd_called = true;
   });

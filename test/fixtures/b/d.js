@@ -1,3 +1,4 @@
+var common = require("../../common");
 common.debug("load fixtures/b/d.js");
 
 var string = "D";
