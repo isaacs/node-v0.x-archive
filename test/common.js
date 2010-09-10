@@ -4,7 +4,7 @@ exports.testDir = path.dirname(__filename);
 exports.fixturesDir = path.join(exports.testDir, "fixtures");
 exports.libDir = path.join(exports.testDir, "../lib");
 exports.tmpDir = path.join(exports.testDir, "tmp");
-exports.PORT = 12346;
+exports.PORT = 15443;
 
 exports.assert = require('assert');
 
