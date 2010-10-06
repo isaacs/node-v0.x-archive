@@ -1,0 +1,37 @@
+CONTRIBUTING TO NODEJS
+
+Development discussion happens on the "nodejs-dev" mailing list.
+
+   http://groups.google.com/group/nodejs-dev
+
+Before starting any major work, you may want to run your ideas past
+the group so as to avoid wasting time and effort.
+
+1. Clone the repository (working off your own fork is fine, too.)
+
+   git clone http://github.com/ry/node.git
+
+2. Make some changes.
+
+3. Commit those changes with reasonably descriptive short messages.
+   The first line of any commit message should be no longer than 50
+   characters.
+
+4. Make sure you're still in sync with the latest code.
+
+   git pull --rebase http://github.com/ry/node.git master
+
+5. Create patch file(s)
+
+   git format-patch origin/master
+
+   or if you are working on your own github clone, and have ry/node
+   listed as a remote:
+
+   git format-patch ry/master
+
+   This will create a .patch file for every commit you added.
+
+6. Send the patch files as attachments to <nodejs-dev@googlegroups.com>
+   and <ry@tinyclouds.org>, along with brief description of the issue.
+   Start the subject line with "[PATCH]".
