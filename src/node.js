@@ -181,7 +181,7 @@ var module = (function () {
 
 
   // sync - no i/o performed
-  function resolveModulePath(request, parent) {
+  function resolveModulePath(request, parent, modulePaths) {
     var start = request.substring(0, 2);
     if (start !== "./" && start !== "..") {
       return [request, modulePaths];
@@ -204,7 +204,7 @@ var module = (function () {
   }
 
 
-  function loadModule (request, parent) {
+  function loadModule (request, parent, modulePaths) {
     debug("loadModule REQUEST  " + (request) + " parent: " + parent.id);
 
     // With natives id === request
@@ -218,7 +218,7 @@ var module = (function () {
       return loadNative(request).exports;
     }
 
-    var resolvedModule = resolveModulePath(request, parent),
+    var resolvedModule = resolveModulePath(request, parent, modulePaths),
         id             = resolvedModule[0],
         paths          = resolvedModule[1];
 
@@ -259,10 +259,16 @@ var module = (function () {
     content = content.replace(/^\#\!.*/, '');
 
     function require (path) {
-      return loadModule(path, self);
+      return loadModule(path, self, require.paths);
     }
 
-    require.paths = modulePaths;
+    var parts = filename.split('/');
+    var paths = [];
+    for (var i = 0 , l = parts.length - 1 ; i < l ; i ++ ) {
+      parts.pop();
+      paths.push(parts.join('/') + '/.node_libraries');
+    }
+    require.paths = paths.concat(modulePaths);
     require.main = process.mainModule;
     // Enable support to add extra extension types
     require.extensions = extensions;

@@ -130,6 +130,9 @@ try {
 assert.equal(require(loadOrder + 'file8').file8, 'file8/index.reg',  msg);
 assert.equal(require(loadOrder + 'file9').file9, 'file9/index.reg2', msg);
 
+// test the .node_libraries thing.
+require("../fixtures/node-libraries/reqpath.js");
+
 process.addListener("exit", function () {
   assert.ok(common.indirectInstanceOf(a.A, Function));
   assert.equal("A done", a.A());
