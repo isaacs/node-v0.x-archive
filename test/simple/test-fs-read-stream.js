@@ -11,6 +11,19 @@ fs = require('fs');
 fn = path.join(common.fixturesDir, 'elipses.txt');
 rangeFile = path.join(common.fixturesDir, 'x.txt');
 
+
+var file5 = fs.createReadStream(rangeFile, {start: 1});
+var contentRead = '';
+file5.addListener('data', function(data) {
+	contentRead += data.toString('utf-8');
+});
+file5.addListener('end', function(data) {
+	assert.equal(contentRead, 'yz\n');
+});
+
+return
+
+
 callbacks = { open: 0, end: 0, close: 0, destroy: 0 };
 
 paused = false;
@@ -103,12 +116,6 @@ try {
   assert.equal(e.message, 'start must be <= end');
 }
 
-try {
-  fs.createReadStream(rangeFile, {start: 2});
-  assert.fail('Creating a ReadStream with a only one range limits must throw.');
-} catch(e) {
-  assert.equal(e.message, 'Both start and end are needed for range streaming.');
-}
 
 var stream = fs.createReadStream(rangeFile, { start: 0, end: 0 });
 stream.data = '';
