@@ -279,7 +279,10 @@ var module = (function () {
     require.resolve = function (request) {
       return resolveModuleFilename(request, self)[1];
     }
-    require.paths = modulePaths;
+    Object.defineProperty(require, "paths",
+      { get : function () { return modulePaths }
+      , set : function (x) { modulePaths = x }
+      , enumerable : true, configurable: false });
     require.main = process.mainModule;
     // Enable support to add extra extension types
     require.extensions = extensions;
