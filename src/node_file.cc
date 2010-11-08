@@ -36,10 +36,32 @@ static Persistent<String> errno_symbol;
 // file-level rather than method-level to avoid excess stack usage.
 static char getbuf[PATH_MAX + 1];
 
+static inline Persistent<Value>* obj_persist (const Local<Value> &v) {
+  Persistent<Value> *o = new Persistent<Value>();
+  if ((*v)->IsFunction()) {
+    Local<Object> otmp = Object::New();
+    otmp->Set(String::New("cb"), v);
+    *o = Persistent<Value>::New(otmp);
+  } else {
+    *o = Persistent<Value>::New((v));
+  }
+  return o;
+}
+static inline Persistent<Value>* obj_unwrap (void *data) {
+  Persistent<Value> *o = reinterpret_cast<Persistent<Value>*>(data);
+  return o;
+}
+static inline void obj_destroy(Persistent<Value> *o) {
+  o->Dispose();
+  delete o;
+}
+
 static int After(eio_req *req) {
   HandleScope scope;
 
-  Persistent<Function> *callback = cb_unwrap(req->data);
+  Persistent<Value> *data = obj_unwrap(req->data);
+  Local<Object> data_obj((*data)->ToObject());
+  Local<Function> callback = Local<Function>::Cast(data_obj->Get(String::New("cb")));
 
   ev_unref(EV_DEFAULT_UC);
 
@@ -48,7 +70,7 @@ static int After(eio_req *req) {
 
   // Allocate space for two args. We may only use one depending on the case.
   // (Feel free to increase this if you need more)
-  Local<Value> argv[2];
+  Local<Value> argv[3];
 
   // NOTE: This may be needed to be changed if something returns a -1
   // for a success, which is possible.
@@ -140,7 +162,7 @@ static int After(eio_req *req) {
   }
 
   TryCatch try_catch;
-
+  argv[argc++] = data_obj;
   (*callback)->Call(v8::Context::GetCurrent()->Global(), argc, argv);
 
   if (try_catch.HasCaught()) {
@@ -148,14 +170,14 @@ static int After(eio_req *req) {
   }
 
   // Dispose of the persistent handle
-  cb_destroy(callback);
+  obj_destroy(data);
 
   return 0;
 }
 
-#define ASYNC_CALL(func, callback, ...)                           \
+#define ASYNC_CALL(func, obj, ...)                           \
   eio_req *req = eio_##func(__VA_ARGS__, EIO_PRI_DEFAULT, After,  \
-    cb_persist(callback));                                        \
+    obj_persist(obj));                                        \
   assert(req);                                                    \
   ev_ref(EV_DEFAULT_UC);                                          \
   return Undefined();
@@ -638,7 +660,10 @@ static Handle<Value> Write(const Arguments& args) {
   Local<Value> cb = args[5];
 
   if (cb->IsFunction()) {
-    ASYNC_CALL(write, cb, fd, buf, len, pos)
+    Local<Object> obj = Object::New();
+    obj->Set(String::New("cb"), cb);
+    obj->Set(String::New("buffer"), buffer_obj);
+    ASYNC_CALL(write, obj, fd, buf, len, pos)
   } else {
     ssize_t written = pos < 0 ? write(fd, buf, len) : pwrite(fd, buf, len, pos);
     if (written < 0) return ThrowException(ErrnoException(errno, "write"));
