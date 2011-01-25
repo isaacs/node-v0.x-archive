@@ -1321,7 +1321,7 @@ static Handle<Value> Cwd(const Arguments& args) {
 static Handle<Value> Umask(const Arguments& args){
   HandleScope scope;
   unsigned int old;
-  if(args.Length() < 1) {
+  if(args.Length() < 1 || args[0]->IsUndefined()) {
     old = umask(0);
     umask((mode_t)old);
   }

@@ -16,6 +16,7 @@
     startup.processStdio();
     startup.processKillAndExit();
     startup.processSignalHandlers();
+    startup.processUmask();
 
     startup.removedMethods();
 
@@ -239,6 +240,14 @@
       }
 
       return ret;
+    };
+  };
+
+  startup.processUmask = function() {
+    var umask = process.umask;
+    process.umask = function(mode) {
+      if (typeof mode === 'string') mode = parseInt(mode, 8);
+      return umask(mode);
     };
   };
 
