@@ -216,6 +216,7 @@ assert.equal(d.length, 3);
 assert.equal(d[0], 23);
 assert.equal(d[1], 42);
 assert.equal(d[2], 255);
+assert.deepEqual(d, new Buffer(d));
 
 var e = new Buffer('über');
 console.error('uber: \'%s\'', e.toString());
@@ -224,6 +225,13 @@ assert.deepEqual(e, new Buffer([195, 188, 98, 101, 114]));
 var f = new Buffer('über', 'ascii');
 console.error('f.length: %d     (should be 4)', f.length);
 assert.deepEqual(f, new Buffer([252, 98, 101, 114]));
+
+var arrayIsh = {0: 0, 1: 1, 2: 2, 3: 3, length: 4};
+var g = new Buffer(arrayIsh);
+assert.deepEqual(g, new Buffer([0, 1, 2, 3]));
+var strArrayIsh = {0: '0', 1: '1', 2: '2', 3: '3', length: 4};
+g = new Buffer(strArrayIsh);
+assert.deepEqual(g, new Buffer([0, 1, 2, 3]));
 
 
 //
