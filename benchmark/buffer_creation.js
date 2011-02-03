@@ -1,4 +1,4 @@
-SlowBuffer = require('buffer').SlowBuffer;
+SlowBuffer = require('_buffer').SlowBuffer;
 
 for (var i = 0; i < 1e6; i++) {
   b = new SlowBuffer(10);

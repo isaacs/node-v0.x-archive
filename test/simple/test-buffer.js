@@ -1,8 +1,6 @@
 var common = require('../common');
 var assert = require('assert');
 
-var Buffer = require('buffer').Buffer;
-
 var b = Buffer(1024); // safe constructor
 
 console.log('b.length == ' + b.length);

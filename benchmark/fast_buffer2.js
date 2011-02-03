@@ -1,4 +1,4 @@
-var SlowBuffer = require('buffer').SlowBuffer;
+var SlowBuffer = require('_buffer').SlowBuffer;
 var POOLSIZE = 8*1024;
 var pool;
 

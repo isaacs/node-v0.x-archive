@@ -1,6 +1,6 @@
 var fs = require('fs');
 var util = require('util');
-var Buffer = require('buffer').Buffer;
+var Buffer = require('_buffer').Buffer;
 
 var path = "/tmp/wt.dat";
 var tsize = 1000 * 1048576;

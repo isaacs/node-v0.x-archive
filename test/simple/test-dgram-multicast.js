@@ -3,8 +3,7 @@ var assert = require('assert');
 
 var dgram = require('dgram'),
     util = require('util'),
-    assert = require('assert'),
-    Buffer = require('buffer').Buffer;
+    assert = require('assert');
 var LOCAL_BROADCAST_HOST = '224.0.0.1';
 var sendMessages = [
   new Buffer('First message to send'),

@@ -28,7 +28,6 @@
 var common = require('../common');
 var assert = require('assert');
 
-var buffer = require('buffer');
 var child_process = require('child_process');
 var fs = require('fs');
 var net = require('net');
@@ -90,7 +89,7 @@ var srv = net.createServer(function(s) {
   var str = JSON.stringify(DATA) + '\n';
 
   DATA.ord = DATA.ord + 1;
-  var buf = new buffer.Buffer(str.length);
+  var buf = new Buffer(str.length);
   buf.write(JSON.stringify(DATA) + '\n', 'utf8');
 
   s.write(str, 'utf8', pipeFDs[1]);

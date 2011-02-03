@@ -46,34 +46,34 @@
     global.global = global;
     global.GLOBAL = global;
     global.root = global;
-    global.Buffer = NativeModule.require('buffer').Buffer;
+    global.Buffer = NativeModule.require('_buffer').Buffer;
   };
 
   startup.globalTimeouts = function() {
     global.setTimeout = function() {
-      var t = NativeModule.require('timers');
+      var t = NativeModule.require('_timers');
       return t.setTimeout.apply(this, arguments);
     };
 
     global.setInterval = function() {
-      var t = NativeModule.require('timers');
+      var t = NativeModule.require('_timers');
       return t.setInterval.apply(this, arguments);
     };
 
     global.clearTimeout = function() {
-      var t = NativeModule.require('timers');
+      var t = NativeModule.require('_timers');
       return t.clearTimeout.apply(this, arguments);
     };
 
     global.clearInterval = function() {
-      var t = NativeModule.require('timers');
+      var t = NativeModule.require('_timers');
       return t.clearInterval.apply(this, arguments);
     };
   };
 
   startup.globalConsole = function() {
     global.__defineGetter__('console', function() {
-      return NativeModule.require('console');
+      return NativeModule.require('_console');
     });
   };
 
@@ -328,7 +328,7 @@
       process.argv[1] = path.resolve(process.argv[1]);
     }
 
-    var Module = NativeModule.require('module');
+    var Module = NativeModule.require('_module');
 
     // REMOVEME: nextTick should not be necessary. This hack to get
     // test/simple/test-exception-handler2.js working.
@@ -343,7 +343,7 @@
       return;
     }
 
-    var Module = NativeModule.require('module');
+    var Module = NativeModule.require('_module');
 
     var rv = new Module()._compile('return eval(process._eval)', 'eval');
     console.log(rv);
@@ -351,7 +351,7 @@
   };
 
   startup.runRepl = function() {
-    var Module = NativeModule.require('module');
+    var Module = NativeModule.require('_module');
     // REPL
     Module.requireRepl().start();
   };

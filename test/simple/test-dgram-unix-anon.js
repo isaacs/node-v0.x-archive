@@ -1,8 +1,7 @@
 var common = require('../common');
 var assert = require('assert');
 
-var Buffer = require('buffer').Buffer,
-    fs = require('fs'),
+var fs = require('fs'),
     dgram = require('dgram'), server, client,
     server_path = '/tmp/dgram_server_sock',
     messages_to_send = [

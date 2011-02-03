@@ -1,7 +1,6 @@
 var common = require('../common');
 var assert = require('assert');
 var path = require('path'),
-    Buffer = require('buffer').Buffer,
     fs = require('fs'),
     filename = path.join(common.tmpDir, 'write.txt'),
     expected = new Buffer('hello'),

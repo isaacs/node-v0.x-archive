@@ -1,6 +1,5 @@
 var common = require('../common');
 var assert = require('assert');
-var Buffer = require('buffer').Buffer;
 var dgram = require('dgram');
 
 var tests_run = 0;

@@ -1,7 +1,6 @@
 var common = require('../common');
 var assert = require('assert');
 var path = require('path'),
-    Buffer = require('buffer').Buffer,
     fs = require('fs'),
     filepath = path.join(common.fixturesDir, 'x.txt'),
     fd = fs.openSync(filepath, 'r'),
