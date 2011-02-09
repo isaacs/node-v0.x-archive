@@ -1253,6 +1253,10 @@ void DisplayExceptionLine (TryCatch &try_catch) {
     // Even better would be to get support into V8 for wrappers that
     // shouldn't be reported to users.
     int offset = linenum == 1 ? 62 : 0;
+    if (offset != 0 && NULL != getenv("NODE_USE_STRICT")) {
+      offset += 14;
+    }
+
 
     fprintf(stderr, "%s\n", sourceline_string + offset);
     // Print wavy underline (GetUnderline is deprecated).

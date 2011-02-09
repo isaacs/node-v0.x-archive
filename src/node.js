@@ -405,6 +405,10 @@
     '\n});'
   ];
 
+  if (process.env.NODE_USE_STRICT !== undefined) {
+    NativeModule.wrapper[0] += '"use strict"; ';
+  }
+
   NativeModule.prototype.compile = function() {
     var source = NativeModule.getSource(this.id);
     source = NativeModule.wrap(source);
