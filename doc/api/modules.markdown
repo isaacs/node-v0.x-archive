@@ -78,9 +78,9 @@ Without a leading '/' or './' to indicate a file, the module is either a
 ### Loading from `node_modules` Folders
 
 If the module identifier passed to `require()` is not a native module,
-and does not begin with `'/'` or `'./'`, then node starts at the parent
-directory of the current module, and adds `/node_modules`, and attempts
-to load the module from that location.
+and does not begin with `'/'`, `'../'`, or `'./'`, then node starts at the
+parent directory of the current module, and adds `/node_modules`, and
+attempts to load the module from that location.
 
 If it is not found there, then it moves to the parent directory, and so
 on, until either the module is found, or the root of the tree is
@@ -200,3 +200,124 @@ in pseudocode of what require.resolve does:
        c. DIR = path join(PARTS[0 .. I] + "node_modules")
        b. DIRS = DIRS + DIR
     6. return DIRS
+
+### Loading from the `require.paths` Folders
+
+In node, `require.paths` is an array of strings that represent paths to
+be searched for modules when they are not prefixed with `'/'`, `'./'`, or
+`'../'`.  For example, if require.paths were set to:
+
+    [ '/home/micheil/.node_modules',
+      '/usr/local/lib/node_modules' ]
+
+Then calling `require('bar/baz.js')` would search the following
+locations:
+
+* 1: `'/home/micheil/.node_modules/bar/baz.js'`
+* 2: `'/usr/local/lib/node_modules/bar/baz.js'`
+
+The `require.paths` array can be mutated at run time to alter this
+behavior.
+
+It is set initially from the `NODE_PATH` environment variable, which is
+a colon-delimited list of absolute paths.  In the previous example,
+the `NODE_PATH` environment variable might have been set to:
+
+    /home/micheil/.node_modules:/usr/local/lib/node_modules
+
+#### **Note:** Please Avoid Modifying `require.paths`
+
+For compatibility reasons, `require.paths` is still given first priority
+in the module lookup process.  However, it may disappear in a future
+release.
+
+While it seemed like a good idea at the time, and enabled a lot of
+useful experimentation, in practice a mutable `require.paths` list is
+often a troublesome source of confusion and headaches.
+
+##### Setting `require.paths` to some other value does nothing.
+
+This does not do what one might expect:
+
+    require.paths = [ '/usr/lib/node' ];
+
+All that does is lose the reference to the *actual* node module lookup
+paths, and create a new reference to some other thing that isn't used
+for anything.
+
+##### Putting relative paths in `require.paths` is... weird.
+
+If you do this:
+
+    require.paths.push('./lib');
+
+then it does *not* add the full resolved path to where `./lib`
+is on the filesystem.  Instead, it literally adds `'./lib'`,
+meaning that if you do `require('y.js')` in `/a/b/x.js`, then it'll look
+in `/a/b/lib/y.js`.  If you then did `require('y.js')` in
+`/l/m/n/o/p.js`, then it'd look in `/l/m/n/o/p/lib/y.js`.
+
+In practice, people have used this as an ad hoc way to bundle
+dependencies, but this technique is brittle.
+
+##### Zero Isolation
+
+There is (by regrettable design), only one `require.paths` array used by
+all modules.
+
+As a result, if one node program comes to rely on this behavior, it may
+permanently and subtly alter the behavior of all other node programs in
+the same process.  As the application stack grows, we tend to assemble
+functionality, and it is a problem with those parts interact in ways
+that are difficult to predict.
+
+## Addenda: Package Manager Tips
+
+If you were to build a package manager, the tools above provide you with
+all you need to very elegantly set up modules in a folder structure such
+that they get the required dependencies and do not conflict with one
+another.
+
+Let's say that we wanted to have the folder at
+`/usr/lib/<some-program>/<some-version>` hold the contents of a specific
+version of a package.
+
+Packages can depend on one another.  So, in order to install
+package `foo`, you may have to install a specific version of package `bar`.
+The `bar` package may itself have dependencies, and in some cases, these
+dependencies may even collide or form cycles.
+
+Since Node looks up the `realpath` of any modules it loads, and then
+looks for their dependencies in the `node_modules` folders as described
+above, this situation is very simple to resolve with the following
+architecture:
+
+* `/usr/lib/foo/1.2.3/` - Contents of the `foo` package, version 1.2.3.
+* `/usr/lib/bar/4.3.2/` - Contents of the `bar` package that `foo`
+  depends on.
+* `/usr/lib/foo/1.2.3/node_modules/bar` - Symbolic link to
+  `/usr/lib/bar/4.3.2/`.
+* `/usr/lib/bar/4.3.2/node_modules/*` - Symbolic links to the packages
+  that `bar` depends on.
+
+Thus, even if a cycle is encountered, or if there are dependency
+conflicts, every module will be able to get a version of its dependency
+that it can use.
+
+When the code in the `foo` package does `require('bar')`, it will get
+the version that is symlinked into
+`/usr/lib/foo/1.2.3/node_modules/bar`.  Then, when the code in the `bar`
+package calls `require('quux')`, it'll get the version that is symlinked
+into `/usr/lib/bar/4.3.2/node_modules/quux`.
+
+Furthermore, to make the module lookup process even more optimal, rather
+than putting packages directly in `/usr/lib`, we could put them in
+`/usr/lib/node_modules/<name>/<version>`.  Then node will not bother
+looking for missing dependencies in `/usr/node_modules` or
+`/node_modules`.
+
+In order to make modules available to the node repl, it might be useful
+to also add the `/usr/lib/node_modules` folder to the `NODE_PATH`
+environment variable.  Since the module lookups using `node_modules`
+folders are all relative, and based on the real path of the files
+making the calls to `require()`, the packages themselves can be anywhere.
