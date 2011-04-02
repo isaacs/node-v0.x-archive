@@ -95,7 +95,7 @@ to the completion callback.
 
 ### fs.lchownSync(path, mode)
 
-Synchronous fchown(2).
+Synchronous lchown(2).
 
 ### fs.chmod(path, mode, [callback])
 
@@ -117,12 +117,12 @@ Synchronous fchmod(2).
 
 ### fs.lchmod(fd, mode, [callback])
 
-Asynchronous fchmod(2). No arguments other than a possible exception
+Asynchronous lchmod(2). No arguments other than a possible exception
 are given to the completion callback.
 
 ### fs.lchmodSync(path, mode)
 
-Synchronous fchmod(2).
+Synchronous lchmod(2).
 
 ### fs.stat(path, [callback])
 
