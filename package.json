@@ -1,0 +1,19 @@
+{
+  "name" : "node",
+  "version" : "0.5.0-pre",
+  "author" : "Ryan Dahl <ry@tinyclouds.org> (http://blog.nodejs.org/)",
+  "homepage" : "http://nodejs.org/",
+  "repo" : "https://github.com/joyent/node",
+  "bin" : {
+    "node" : "./node",
+    "node_g" : "./node_g"
+  },
+  "scripts" : {
+    "test" : "make test",
+    "preinstall" : "./configure --prefix=$npm_config_prefix --debug && make"
+  },
+  "man" : "doc/node.1",
+  "directories" : {
+    "doc" : "./doc"
+  }
+}
