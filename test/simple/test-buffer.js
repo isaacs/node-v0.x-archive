@@ -557,3 +557,7 @@ b.fill(1, 16, 32);
 for (var i = 0; i < 16; i++) assert.equal(0, b[i]);
 for (; i < 32; i++) assert.equal(1, b[i]);
 for (; i < b.length; i++) assert.equal(0, b[i]);
+
+var b = new SlowBuffer(10);
+b.write('あいうえお', 'ucs2');
+assert.equal(b.toString('ucs2'), 'あいうえお');
