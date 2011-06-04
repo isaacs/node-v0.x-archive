@@ -274,8 +274,28 @@ var parseTests = {
     'search' : '?search=foo',
     'query' : 'search=foo',
     'hash' : '#bar'
+  },
+  'http://➡.ws/pageloads' : {
+    'href' : 'http://➡.ws/pageloads',
+    'protocol' : 'http:',
+    'host' : '➡.ws',
+    'hostname' : '➡.ws',
+    'pathname' : '/pageloads'
+  },
+  'http://user:pass@[::1]:8080/path?search=query#hash' : {
+    'href' : 'http://user:pass@[::1]:8080/path?search=query#hash',
+    'protocol' : 'http:',
+    'host' : 'user:pass@[::1]:8080',
+    'auth' : 'user:pass',
+    'hostname' : '::1',
+    'pathname' : '/path',
+    'search' : '?search=query',
+    'query' : 'search=query',
+    'hash' : '#hash'
   }
+
 };
+
 for (var u in parseTests) {
   var actual = url.parse(u),
       expected = parseTests[u];
@@ -416,6 +436,13 @@ var formatTests = {
   'http://atslash%2F%40:%2F%40@foo/' : {
     'href': 'http://atslash%2F%40:%2F%40@foo/',
     'auth': 'atslash/@:/@',
+    'hostname': 'foo',
+    'protocol': 'http:',
+    'pathname': '/'
+  },
+  'http://atslash%3A%2F%40:%2F%40@foo/' : {
+    'href': 'http://atslash%3A%2F%40:%2F%40@foo/',
+    'auth': 'atslash%3A/@:/@',
     'hostname': 'foo',
     'protocol': 'http:',
     'pathname': '/'
