@@ -72,5 +72,5 @@ server.listen(common.PORT, function() {
 });
 
 process.addListener('exit', function() {
-  assert.equal(2, connectCount);
+  assert.equal(3, connectCount);
 });
