@@ -1,6 +1,8 @@
 WAF=python tools/waf-light
 
-web_root = ryan@nodejs.org:~/web/nodejs.org/
+web_server = ryan@nodejs.org
+web_path = ~/web/nodejs.org/
+web_root = $(web_server)/$(web_path)
 
 #
 # Because we recursively call make from waf we need to make sure that we are
@@ -296,6 +298,7 @@ build/doc/%:
 
 website-upload: doc
 	scp -r build/doc/* $(web_root)
+	ssh $(web_server) "cd "$(web_path)"/docs; rm latest; ln -s "$(VERSION)" latest"
 
 docopen: build/doc/api/all.html
 	-google-chrome build/doc/api/all.html
