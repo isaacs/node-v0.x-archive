@@ -61,6 +61,7 @@
         'deps/http_parser/http_parser.gyp:http_parser',
         'deps/v8/tools/gyp/v8-node.gyp:v8',
         'deps/uv/uv.gyp:uv',
+        'deps/zlib/zlib.gyp:zlib',
         'node_js2c#host',
       ],
 
