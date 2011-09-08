@@ -19,37 +19,15 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#ifndef NODE_ZLIB
+#define NODE_ZLIB
 
-NODE_EXT_LIST_START
-NODE_EXT_LIST_ITEM(node_buffer)
-#ifdef __POSIX__
-NODE_EXT_LIST_ITEM(node_cares)
-NODE_EXT_LIST_ITEM(node_child_process)
-#endif
-#if HAVE_OPENSSL
-NODE_EXT_LIST_ITEM(node_crypto)
-#endif
-NODE_EXT_LIST_ITEM(node_evals)
-NODE_EXT_LIST_ITEM(node_fs)
-#ifdef __POSIX__
-NODE_EXT_LIST_ITEM(node_net)
-#endif
-NODE_EXT_LIST_ITEM(node_http_parser)
-#ifdef __POSIX__
-NODE_EXT_LIST_ITEM(node_signal_watcher)
-#endif
-NODE_EXT_LIST_ITEM(node_stdio)
-NODE_EXT_LIST_ITEM(node_os)
-NODE_EXT_LIST_ITEM(node_zlib)
+#include <v8.h>
 
-// libuv rewrite
-NODE_EXT_LIST_ITEM(node_timer_wrap)
-NODE_EXT_LIST_ITEM(node_tcp_wrap)
-NODE_EXT_LIST_ITEM(node_udp_wrap)
-NODE_EXT_LIST_ITEM(node_pipe_wrap)
-NODE_EXT_LIST_ITEM(node_cares_wrap)
-NODE_EXT_LIST_ITEM(node_stdio_wrap)
-NODE_EXT_LIST_ITEM(node_process_wrap)
+namespace node {
 
-NODE_EXT_LIST_END
+void InitZlib(v8::Handle<v8::Object> target);
 
+}
+
+#endif  // NODE_ZLIB

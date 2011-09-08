@@ -857,6 +857,7 @@ def build(bld):
     src/node_os.cc
     src/node_dtrace.cc
     src/node_string.cc
+    src/node_zlib.cc
     src/timer_wrap.cc
     src/handle_wrap.cc
     src/stream_wrap.cc

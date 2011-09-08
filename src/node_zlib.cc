@@ -20,36 +20,72 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-NODE_EXT_LIST_START
-NODE_EXT_LIST_ITEM(node_buffer)
-#ifdef __POSIX__
-NODE_EXT_LIST_ITEM(node_cares)
-NODE_EXT_LIST_ITEM(node_child_process)
-#endif
-#if HAVE_OPENSSL
-NODE_EXT_LIST_ITEM(node_crypto)
-#endif
-NODE_EXT_LIST_ITEM(node_evals)
-NODE_EXT_LIST_ITEM(node_fs)
-#ifdef __POSIX__
-NODE_EXT_LIST_ITEM(node_net)
-#endif
-NODE_EXT_LIST_ITEM(node_http_parser)
-#ifdef __POSIX__
-NODE_EXT_LIST_ITEM(node_signal_watcher)
-#endif
-NODE_EXT_LIST_ITEM(node_stdio)
-NODE_EXT_LIST_ITEM(node_os)
-NODE_EXT_LIST_ITEM(node_zlib)
+#include <node.h>
+#include <node_buffer.h>
+#include <node_zlib.h>
 
-// libuv rewrite
-NODE_EXT_LIST_ITEM(node_timer_wrap)
-NODE_EXT_LIST_ITEM(node_tcp_wrap)
-NODE_EXT_LIST_ITEM(node_udp_wrap)
-NODE_EXT_LIST_ITEM(node_pipe_wrap)
-NODE_EXT_LIST_ITEM(node_cares_wrap)
-NODE_EXT_LIST_ITEM(node_stdio_wrap)
-NODE_EXT_LIST_ITEM(node_process_wrap)
+#include <v8.h>
 
-NODE_EXT_LIST_END
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
 
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <zlib.h>
+
+//XXX Make this configurable.
+#define CHUNK 65536
+
+namespace node {
+
+using namespace v8;
+
+
+
+class Zlib : public ObjectWrap {
+
+ public:
+
+  Zlib() : ObjectWrap() {
+    Init();
+  }
+
+  ~Zlib() {
+  }
+
+  static Handle<Value> New(const Arguments& args) {
+    HandleScope scope;
+
+    Zlib *self;
+    self->Wrap(args.This());
+
+    return args.This();
+  }
+
+ private:
+
+  void Init () {
+  }
+
+  z_stream strm;
+};
+
+
+void InitZlib(Handle<Object> target) {
+  HandleScope scope;
+
+  Local<FunctionTemplate> t = FunctionTemplate::New(Zlib::New);
+
+  // zstrm struct
+  t->InstanceTemplate()->SetInternalFieldCount(1);
+
+  t->SetClassName(String::NewSymbol("Zlib"));
+
+  target->Set(String::NewSymbol("Zlib"), t->GetFunction());
+}
+
+}  // namespace node
+
+NODE_MODULE(node_zlib, node::InitZlib);
