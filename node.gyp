@@ -49,6 +49,7 @@
       'lib/url.js',
       'lib/util.js',
       'lib/vm.js',
+      'lib/zlib.js',
     ],
   },
 
@@ -86,6 +87,7 @@
         'src/node_os.cc',
         'src/node_script.cc',
         'src/node_string.cc',
+        'src/node_zlib.cc',
         'src/pipe_wrap.cc',
         'src/stdio_wrap.cc',
         'src/stream_wrap.cc',
@@ -114,6 +116,7 @@
         'src/node_stdio.h',
         'src/node_string.h',
         'src/node_version.h',
+        'src/node_zlib.h',
         'src/pipe_wrap.h',
         'src/platform.h',
         'src/req_wrap.h',
