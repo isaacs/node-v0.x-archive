@@ -23,8 +23,28 @@
 #define NODE_ZLIB
 
 #include <v8.h>
+#include <zlib.h>
 
 namespace node {
+
+using namespace v8;
+
+class Deflate;
+
+struct deflate_req {
+  Deflate* self;
+  size_t len;
+  int flush;
+  Bytef* buf;
+  bool started;
+  Persistent<Value> callback;
+};
+
+struct deflate_req_q {
+  deflate_req *req;
+  deflate_req_q *next;
+};
+
 
 void InitZlib(v8::Handle<v8::Object> target);
 
