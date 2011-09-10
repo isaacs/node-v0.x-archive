@@ -335,7 +335,6 @@ class Deflate : public ObjectWrap {
     strm.zalloc = Z_NULL;
     strm.zfree = Z_NULL;
     strm.opaque = Z_NULL;
-    err = deflateInit(&strm, level);
     flush = Z_NO_FLUSH;
     processing = false;
     ended = false;
@@ -343,9 +342,9 @@ class Deflate : public ObjectWrap {
     req_head = NULL;
     req_tail = NULL;
     req_q_len = 0;
-    if (err != Z_OK) {
-      return;
-    }
+
+    err = deflateInit(&strm, level);
+    assert(err == Z_OK);
   }
 };
 
