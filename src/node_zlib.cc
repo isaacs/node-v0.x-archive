@@ -302,8 +302,9 @@ class Deflate : public ObjectWrap {
 
     self = new Deflate(level_);
     if (self->err != Z_OK) {
-      return ThrowException(Exception::Error(
-            String::New(zlib_perr(self->err))));
+      const char *msg = self->strm.msg;
+      if (msg == NULL) msg = zlib_perr(self->err);
+      return ThrowException(Exception::Error(String::New(msg)));
     }
 
     self->Wrap(args.This());
