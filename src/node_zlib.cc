@@ -42,10 +42,6 @@ namespace node {
 
 using namespace v8;
 
-static Persistent<String> ondata_sym;
-static Persistent<String> onend_sym;
-static Persistent<String> ondrain_sym;
-
 const char * zlib_perr(int code)
 {
   switch (code) {
@@ -63,18 +59,17 @@ const char * zlib_perr(int code)
 
 
 /**
- * Deflate
+ * Deflate/Inflate
  */
-
-class Deflate : public ObjectWrap {
+template <int mode> class Flate : public ObjectWrap {
 
  public:
 
-  Deflate(int level) : ObjectWrap() {
+  Flate(int level) : ObjectWrap() {
     Init(level);
   }
 
-  ~Deflate() {
+  ~Flate() {
   }
 
   static Handle<Value> Write(const Arguments& args) {
@@ -107,15 +102,15 @@ class Deflate : public ObjectWrap {
       len = Buffer::Length(buffer_obj);
     }
 
-    Deflate *self = ObjectWrap::Unwrap<Deflate>(args.This());
+    Flate<mode> *self = ObjectWrap::Unwrap< Flate<mode> >(args.This());
 
     if (self->ended) {
       return ThrowException(Exception::Error(
                   String::New("Cannot write after end()")));
     }
 
-    // create the deflate_req
-    deflate_req *req = new deflate_req;
+    // create the flate_req
+    flate_req<mode> *req = new flate_req<mode>;
     req->self = self;
     req->callback = callback;
     req->len = len;
@@ -126,9 +121,9 @@ class Deflate : public ObjectWrap {
     req->started = false;
 
     // add to the queue
-    deflate_req_q *t = self->req_tail;
-    deflate_req_q *h = self->req_head;
-    deflate_req_q *q = new deflate_req_q();
+    flate_req_q<mode> *t = self->req_tail;
+    flate_req_q<mode> *h = self->req_head;
+    flate_req_q<mode> *q = new flate_req_q<mode>();
     q->req = req;
     q->next = NULL;
     if (!self->req_head || !self->req_tail) {
@@ -160,15 +155,15 @@ class Deflate : public ObjectWrap {
     uv_work_t* work_req = new uv_work_t();
     work_req->data = req_head->req;
 
-    Deflate *self = req_head->req->self;
+    Flate<mode> *self = req_head->req->self;
     z_stream strm = self->strm;
     strm.avail_in = req_head->req->len;
     strm.next_in = req_head->req->buf;
 
     uv_queue_work(uv_default_loop(),
                   work_req,
-                  Deflate::UVProcess,
-                  Deflate::UVProcessAfter);
+                  Flate<mode>::UVProcess,
+                  Flate<mode>::UVProcessAfter);
     return;
   }
 
@@ -176,9 +171,9 @@ class Deflate : public ObjectWrap {
   // This function may be called multiple times on the uv_work pool
   // until all of the input bytes have been exhausted.
   static void UVProcess(uv_work_t* work_req) {
-    deflate_req *req = (deflate_req *)work_req->data;
+    flate_req<mode> *req = (flate_req<mode> *)work_req->data;
 
-    Deflate *self = req->self;
+    Flate<mode> *self = req->self;
     z_stream strm = self->strm;
 
     strm.avail_out = CHUNK;
@@ -187,7 +182,12 @@ class Deflate : public ObjectWrap {
     // If the avail_out is left at 0, then it means that it ran out
     // of room.  If there was avail_out left over, then it means
     // that all of the input was consumed.
-    self->err = deflate(&strm, self->flush);
+    if (mode == DEFLATE) {
+      self->err = deflate(&strm, self->flush);
+    } else if (mode == INFLATE) {
+      self->err = inflate(&strm, self->flush);
+    }
+
     assert(self->err != Z_STREAM_ERROR);
     self->have = CHUNK - strm.avail_out;
 
@@ -198,16 +198,16 @@ class Deflate : public ObjectWrap {
 
   // v8 land!
   static void UVProcessAfter(uv_work_t* work_req) {
-    deflate_req *req = (deflate_req *)work_req->data;
+    flate_req<mode> *req = (flate_req<mode> *)work_req->data;
 
-    Deflate *self = req->self;
+    Flate<mode> *self = req->self;
     if (self->have > 0) {
-      Buffer* deflated = Buffer::New((char *)(self->out), self->have);
+      Buffer* flated = Buffer::New((char *)(self->out), self->have);
       if (self->handle_->Has(ondata_sym)) {
         Handle<Value> od = self->handle_->Get(ondata_sym);
         assert(od->IsFunction());
         Handle<Function> ondata = Handle<Function>::Cast(od);
-        Handle<Value> odargv[1] = { deflated->handle_ };
+        Handle<Value> odargv[1] = { flated->handle_ };
         ondata->Call(self->handle_, 1, odargv);
       }
     }
@@ -218,8 +218,8 @@ class Deflate : public ObjectWrap {
     if (strm.avail_out == 0) {
       uv_queue_work(uv_default_loop(),
                     work_req,
-                    Deflate::UVProcess,
-                    Deflate::UVProcessAfter);
+                    Flate<mode>::UVProcess,
+                    Flate<mode>::UVProcessAfter);
       return;
     }
 
@@ -227,9 +227,9 @@ class Deflate : public ObjectWrap {
     self->processing = false;
 
     // shift the queue
-    deflate_req_q *h = self->req_head;
+    flate_req_q<mode> *h = self->req_head;
     if (h != NULL) {
-      deflate_req_q *t = self->req_tail;
+      flate_req_q<mode> *t = self->req_tail;
       self->req_head = self->req_head->next;
       if (t == h) {
         t = NULL;
@@ -269,7 +269,11 @@ class Deflate : public ObjectWrap {
     // needs to be done.  clean up the zstream
     if (self->ended) {
       z_stream strm = self->strm;
-      (void)deflateEnd(&strm);
+      if (mode == DEFLATE) {
+        (void)deflateEnd(&strm);
+      } else if (mode == INFLATE) {
+        (void)inflateEnd(&strm);
+      }
     }
   }
 
@@ -277,7 +281,7 @@ class Deflate : public ObjectWrap {
     HandleScope scope;
 
     Handle<Value> ret;
-    Deflate *self = ObjectWrap::Unwrap<Deflate>(args.This());
+    Flate<mode> *self = ObjectWrap::Unwrap< Flate<mode> >(args.This());
 
     // flush the remaining bytes.
     self->flush = Z_FINISH;
@@ -292,7 +296,7 @@ class Deflate : public ObjectWrap {
   static Handle<Value> New(const Arguments& args) {
     HandleScope scope;
 
-    Deflate *self;
+    Flate<mode> *self;
 
     int level_ = args[0]->Int32Value();
     if (level_ < -1 || level_ > 9) {
@@ -300,7 +304,7 @@ class Deflate : public ObjectWrap {
             String::New("Invalid compression level")));
     }
 
-    self = new Deflate(level_);
+    self = new Flate<mode>(level_);
     if (self->err != Z_OK) {
       const char *msg = self->strm.msg;
       if (msg == NULL) msg = zlib_perr(self->err);
@@ -315,8 +319,8 @@ class Deflate : public ObjectWrap {
 
  private:
 
-  deflate_req_q *req_head;
-  deflate_req_q *req_tail;
+  flate_req_q<mode> *req_head;
+  flate_req_q<mode> *req_tail;
   int req_q_len;
   bool processing;
 
@@ -343,7 +347,12 @@ class Deflate : public ObjectWrap {
     req_tail = NULL;
     req_q_len = 0;
 
-    err = deflateInit(&strm, level);
+    if (mode == DEFLATE) {
+      err = deflateInit(&strm, level);
+    } else if (mode == INFLATE) {
+      err = inflateInit(&strm);
+    }
+
     assert(err == Z_OK);
   }
 };
@@ -352,16 +361,16 @@ class Deflate : public ObjectWrap {
 void InitZlib(Handle<Object> target) {
   HandleScope scope;
 
-  Local<FunctionTemplate> t = FunctionTemplate::New(Deflate::New);
+  Local<FunctionTemplate> def = FunctionTemplate::New(Flate<DEFLATE>::New);
 
-  t->InstanceTemplate()->SetInternalFieldCount(1);
+  def->InstanceTemplate()->SetInternalFieldCount(1);
 
-  NODE_SET_PROTOTYPE_METHOD(t, "write", Deflate::Write);
-  NODE_SET_PROTOTYPE_METHOD(t, "end", Deflate::End);
+  NODE_SET_PROTOTYPE_METHOD(def, "write", Flate<DEFLATE>::Write);
+  NODE_SET_PROTOTYPE_METHOD(def, "end", Flate<DEFLATE>::End);
 
-  t->SetClassName(String::NewSymbol("Deflate"));
+  def->SetClassName(String::NewSymbol("Deflate"));
 
-  target->Set(String::NewSymbol("Deflate"), t->GetFunction());
+  target->Set(String::NewSymbol("Deflate"), def->GetFunction());
 
   ondata_sym = NODE_PSYMBOL("onData");
   onend_sym = NODE_PSYMBOL("onEnd");

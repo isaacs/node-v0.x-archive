@@ -29,10 +29,17 @@ namespace node {
 
 using namespace v8;
 
-class Deflate;
+static Persistent<String> ondata_sym;
+static Persistent<String> onend_sym;
+static Persistent<String> ondrain_sym;
 
-struct deflate_req {
-  Deflate* self;
+#define DEFLATE 0
+#define INFLATE 1
+
+template <int mode> class Flate;
+
+template <int mode> struct flate_req {
+  Flate<mode>* self;
   size_t len;
   int flush;
   Bytef* buf;
@@ -40,9 +47,9 @@ struct deflate_req {
   Persistent<Value> callback;
 };
 
-struct deflate_req_q {
-  deflate_req *req;
-  deflate_req_q *next;
+template <int mode> struct flate_req_q {
+  flate_req<mode> *req;
+  flate_req_q<mode> *next;
 };
 
 
