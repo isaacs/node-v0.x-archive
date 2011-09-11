@@ -361,15 +361,18 @@ template <int mode> class Flate : public ObjectWrap {
 void InitZlib(Handle<Object> target) {
   HandleScope scope;
 
+  Local<FunctionTemplate> inf = FunctionTemplate::New(Flate<INFLATE>::New);
+  inf->InstanceTemplate()->SetInternalFieldCount(1);
+  NODE_SET_PROTOTYPE_METHOD(inf, "write", Flate<INFLATE>::Write);
+  NODE_SET_PROTOTYPE_METHOD(inf, "end", Flate<INFLATE>::End);
+  inf->SetClassName(String::NewSymbol("Inflate"));
+  target->Set(String::NewSymbol("Inflate"), inf->GetFunction());
+
   Local<FunctionTemplate> def = FunctionTemplate::New(Flate<DEFLATE>::New);
-
   def->InstanceTemplate()->SetInternalFieldCount(1);
-
   NODE_SET_PROTOTYPE_METHOD(def, "write", Flate<DEFLATE>::Write);
   NODE_SET_PROTOTYPE_METHOD(def, "end", Flate<DEFLATE>::End);
-
   def->SetClassName(String::NewSymbol("Deflate"));
-
   target->Set(String::NewSymbol("Deflate"), def->GetFunction());
 
   ondata_sym = NODE_PSYMBOL("onData");
