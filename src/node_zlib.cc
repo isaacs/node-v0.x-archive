@@ -22,7 +22,6 @@
 
 #include <node.h>
 #include <node_buffer.h>
-#include <node_zlib.h>
 
 #include <v8.h>
 
@@ -41,6 +40,38 @@
 namespace node {
 
 using namespace v8;
+
+static Persistent<String> ondata_sym;
+static Persistent<String> onend_sym;
+static Persistent<String> ondrain_sym;
+
+enum node_zlib_mode {
+  DEFLATE = 1,
+  INFLATE,
+  GZIP,
+  GUNZIP,
+  DEFLATERAW,
+  INFLATERAW
+};
+
+template <node_zlib_mode mode> class Flate;
+
+template <node_zlib_mode mode> struct flate_req {
+  Flate<mode>* self;
+  size_t len;
+  int flush;
+  Bytef* buf;
+  bool started;
+  Persistent<Value> callback;
+};
+
+template <node_zlib_mode mode> struct flate_req_q {
+  flate_req<mode> *req;
+  flate_req_q<mode> *next;
+};
+
+
+void InitZlib(v8::Handle<v8::Object> target);
 
 const char * zlib_perr(int code)
 {
@@ -61,7 +92,7 @@ const char * zlib_perr(int code)
 /**
  * Deflate/Inflate
  */
-template <int mode> class Flate : public ObjectWrap {
+template <node_zlib_mode mode> class Flate : public ObjectWrap {
 
  public:
 
@@ -122,8 +153,6 @@ template <int mode> class Flate : public ObjectWrap {
     req->buf = buf;
     // set to Z_NO_FLUSH normally, or Z_FINISH when called as .end()
     req->flush = self->flush;
-    // might be set true in UVProcess
-    req->started = false;
 
     // add to the queue
     flate_req_q<mode> *t = self->req_tail;
@@ -220,6 +249,7 @@ template <int mode> class Flate : public ObjectWrap {
         Handle<Value> odargv[1] = { flated->handle_ };
         ondata->Call(self->handle_, 1, odargv);
       }
+      memset(self->out, '\0', self->have);
     }
 
     // if there's no avail_out, then it means that it wasn't able to
@@ -418,6 +448,7 @@ template <int mode> class Flate : public ObjectWrap {
     strategy = strategy_;
 
     out = (Bytef *)malloc(chunk_size);
+    memset(out, '\0', chunk_size);
 
     strm.zalloc = Z_NULL;
     strm.zfree = Z_NULL;
