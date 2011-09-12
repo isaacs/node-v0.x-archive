@@ -20,8 +20,9 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-#include <node.h>
-#include <node_buffer.h>
+#include "node.h"
+#include "node_buffer.h"
+#include "req_wrap.h"
 
 #include <v8.h>
 
@@ -40,6 +41,9 @@
 namespace node {
 
 using namespace v8;
+
+// write() returns one of these, and then calls the cb() when it's done.
+typedef ReqWrap<uv_work_t> WorkReqWrap;
 
 static Persistent<String> ondata_sym;
 static Persistent<String> onend_sym;
