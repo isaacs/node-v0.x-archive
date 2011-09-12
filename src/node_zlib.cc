@@ -44,6 +44,7 @@ using namespace v8;
 static Persistent<String> ondata_sym;
 static Persistent<String> onend_sym;
 static Persistent<String> ondrain_sym;
+static Persistent<String> buffer_sym;
 
 enum node_zlib_mode {
   DEFLATE = 1,
@@ -109,18 +110,19 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
   }
 
   static Handle<Value> Write(const Arguments& args) {
-    // last arg may be a callback.
+    // last arg must be a callback.
     // any other arg must be a buffer.
 
     int argLen = args.Length();
     Persistent<Value> callback;
     size_t len;
     Bytef* buf;
-    if (argLen > 0 && args[argLen - 1]->IsFunction()) {
+    if (args[argLen - 1]->IsFunction()) {
       argLen --;
       callback = Persistent<Value>::New(args[argLen - 1]);
     } else {
-      callback = Persistent<Value>::New(Undefined());
+        return ThrowException(Exception::Error(
+                    String::New("Last argument needs to be a function")));
     }
 
     if (argLen < 1) {
@@ -134,6 +136,7 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
       }
 
       Local<Object> buffer_obj = args[0]->ToObject();
+      callback->ToObject()->Set(buffer_sym, buffer_obj);
       buf = (Bytef *)Buffer::Data(buffer_obj);
       len = Buffer::Length(buffer_obj);
     }
@@ -492,23 +495,24 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
     z->InstanceTemplate()->SetInternalFieldCount(1); \
     NODE_SET_PROTOTYPE_METHOD(z, "write", Flate<mode>::Write); \
     NODE_SET_PROTOTYPE_METHOD(z, "end", Flate<mode>::End); \
-    z->SetClassName(String::NewSymbol("name")); \
-    target->Set(String::NewSymbol("name"), z->GetFunction()); \
+    z->SetClassName(String::NewSymbol(name)); \
+    target->Set(String::NewSymbol(name), z->GetFunction()); \
   }
 
 void InitZlib(Handle<Object> target) {
   HandleScope scope;
 
-  NODE_ZLIB_CLASS(INFLATE, Inflate)
-  NODE_ZLIB_CLASS(DEFLATE, Deflate)
-  NODE_ZLIB_CLASS(INFLATERAW, InflateRaw)
-  NODE_ZLIB_CLASS(DEFLATERAW, DeflateRaw)
-  NODE_ZLIB_CLASS(GZIP, Gzip)
-  NODE_ZLIB_CLASS(GUNZIP, Gunzip)
+  NODE_ZLIB_CLASS(INFLATE, "Inflate")
+  NODE_ZLIB_CLASS(DEFLATE, "Deflate")
+  NODE_ZLIB_CLASS(INFLATERAW, "InflateRaw")
+  NODE_ZLIB_CLASS(DEFLATERAW, "DeflateRaw")
+  NODE_ZLIB_CLASS(GZIP, "Gzip")
+  NODE_ZLIB_CLASS(GUNZIP, "Gunzip")
 
   ondata_sym = NODE_PSYMBOL("onData");
   onend_sym = NODE_PSYMBOL("onEnd");
   ondrain_sym = NODE_PSYMBOL("onDrain");
+  buffer_sym = NODE_PSYMBOL("_buffer");
 }
 
 }  // namespace node
