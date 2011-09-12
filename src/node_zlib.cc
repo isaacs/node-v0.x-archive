@@ -35,8 +35,8 @@
 #include <zlib.h>
 
 
-//XXX Make this configurable.
-#define CHUNK (1024 * 16)
+#define DEFAULT_CHUNK (1024 * 16)
+
 
 namespace node {
 
@@ -65,14 +65,16 @@ template <int mode> class Flate : public ObjectWrap {
 
  public:
 
-  Flate(int level,
+  Flate(int chunk_size,
+        int level,
         int windowBits,
         int memLevel,
         int strategy) : ObjectWrap() {
-    Init(level, windowBits, memLevel, strategy);
+    Init(chunk_size, level, windowBits, memLevel, strategy);
   }
 
   ~Flate() {
+    free(out);
   }
 
   static Handle<Value> Write(const Arguments& args) {
@@ -182,7 +184,7 @@ template <int mode> class Flate : public ObjectWrap {
     Flate<mode> *self = req->self;
     z_stream *strm = &(self->strm);
 
-    strm->avail_out = CHUNK;
+    strm->avail_out = self->chunk_size;
     strm->next_out = self->out;
 
     // If the avail_out is left at 0, then it means that it ran out
@@ -197,7 +199,7 @@ template <int mode> class Flate : public ObjectWrap {
     }
 
     assert(self->err != Z_STREAM_ERROR);
-    self->have = CHUNK - strm->avail_out;
+    self->have = self->chunk_size - strm->avail_out;
 
     // now UVProcessAfter will emit the output, and
     // either schedule another call to UVProcess,
@@ -288,6 +290,12 @@ template <int mode> class Flate : public ObjectWrap {
       } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
         (void)inflateEnd(strm);
       }
+      if (self->handle_->Has(onend_sym)) {
+        Handle<Value> oe = self->handle_->Get(onend_sym);
+        assert(oe->IsFunction());
+        Handle<Function> onend = Handle<Function>::Cast(oe);
+        onend->Call(self->handle_, 0, NULL);
+      }
     }
   }
 
@@ -312,13 +320,18 @@ template <int mode> class Flate : public ObjectWrap {
 
     Flate<mode> *self;
 
-    int level_ = args[0]->Int32Value();
+    int chunk_size_ = args[0]->Uint32Value();
+    if (chunk_size_ == 0) {
+      chunk_size_ = DEFAULT_CHUNK;
+    }
+
+    int level_ = args[1]->Int32Value();
     if (level_ < -1 || level_ > 9) {
       return ThrowException(Exception::Error(
             String::New("Invalid compression level, must be -1 to 9")));
     }
 
-    int windowBits_ = args[1]->Int32Value();
+    int windowBits_ = args[2]->Int32Value();
     if (windowBits_ < 8 || windowBits_ > 15) {
       return ThrowException(Exception::Error(
             String::New("Invalid windowBits, must be 8 to 15")));
@@ -328,15 +341,15 @@ template <int mode> class Flate : public ObjectWrap {
     int memLevel_ = 8;
     int strategy_ = Z_DEFAULT_STRATEGY;
     if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
-      if (args.Length() > 2) {
-        memLevel_ = args[2]->Int32Value();
+      if (args.Length() > 3) {
+        memLevel_ = args[3]->Int32Value();
         if (memLevel_ < 1 || memLevel_ > 9) {
           return ThrowException(Exception::Error(
                 String::New("Invalid memory level, must be 1 to 9")));
         }
 
-        if (args.Length() > 3) {
-          strategy_ = args[3]->Int32Value();
+        if (args.Length() > 4) {
+          strategy_ = args[4]->Int32Value();
           switch (strategy_) {
             case Z_DEFAULT_STRATEGY:
             case Z_FILTERED:
@@ -354,7 +367,11 @@ template <int mode> class Flate : public ObjectWrap {
 
 
 
-    self = new Flate<mode>(level_, windowBits_, memLevel_, strategy_);
+    self = new Flate<mode>(chunk_size_,
+                           level_,
+                           windowBits_,
+                           memLevel_,
+                           strategy_);
     if (self->err != Z_OK) {
       const char *msg = self->strm.msg;
       if (msg == NULL) msg = zlib_perr(self->err);
@@ -385,17 +402,22 @@ template <int mode> class Flate : public ObjectWrap {
   bool ended;
   bool need_drain;
 
-  unsigned char out[CHUNK];
+  Bytef *out;
+  int chunk_size;
   unsigned have;
 
-  void Init (int level_,
+  void Init (int chunk_size_,
+             int level_,
              int windowBits_,
              int memLevel_,
              int strategy_) {
+    chunk_size = chunk_size_;
     level = level_;
     windowBits = windowBits_;
     memLevel = memLevel_;
     strategy = strategy_;
+
+    out = (Bytef *)malloc(chunk_size);
 
     strm.zalloc = Z_NULL;
     strm.zfree = Z_NULL;
