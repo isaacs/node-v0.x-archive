@@ -65,8 +65,11 @@ template <int mode> class Flate : public ObjectWrap {
 
  public:
 
-  Flate(int level) : ObjectWrap() {
-    Init(level);
+  Flate(int level,
+        int windowBits,
+        int memLevel,
+        int strategy) : ObjectWrap() {
+    Init(level, windowBits, memLevel, strategy);
   }
 
   ~Flate() {
@@ -156,10 +159,12 @@ template <int mode> class Flate : public ObjectWrap {
     work_req->data = req_head->req;
 
     Flate<mode> *self = req_head->req->self;
-    z_stream strm = self->strm;
-    strm.avail_in = req_head->req->len;
-    strm.next_in = req_head->req->buf;
+    z_stream *strm = &(self->strm);
+    strm->avail_in = req_head->req->len;
+    strm->next_in = req_head->req->buf;
 
+    //fprintf(stderr, "heading to thread queue %d\n", strm->avail_in);
+    //fprintf(stderr, "heading to thread queue %d\n", strm->avail_in);
     uv_queue_work(uv_default_loop(),
                   work_req,
                   Flate<mode>::UVProcess,
@@ -171,25 +176,28 @@ template <int mode> class Flate : public ObjectWrap {
   // This function may be called multiple times on the uv_work pool
   // until all of the input bytes have been exhausted.
   static void UVProcess(uv_work_t* work_req) {
+    //fprintf(stderr, "UVProcess\n");
     flate_req<mode> *req = (flate_req<mode> *)work_req->data;
 
     Flate<mode> *self = req->self;
-    z_stream strm = self->strm;
+    z_stream *strm = &(self->strm);
 
-    strm.avail_out = CHUNK;
-    strm.next_out = self->out;
+    strm->avail_out = CHUNK;
+    strm->next_out = self->out;
 
     // If the avail_out is left at 0, then it means that it ran out
     // of room.  If there was avail_out left over, then it means
     // that all of the input was consumed.
-    if (mode == DEFLATE) {
-      self->err = deflate(&strm, self->flush);
-    } else if (mode == INFLATE) {
-      self->err = inflate(&strm, self->flush);
+    if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
+      self->err = deflate(strm, req->flush);
+    } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
+      //fprintf(stderr, "UVProcess pre-inflate\n");
+      self->err = inflate(strm, req->flush);
+      //fprintf(stderr, "UVProcess post-inflate\n");
     }
 
     assert(self->err != Z_STREAM_ERROR);
-    self->have = CHUNK - strm.avail_out;
+    self->have = CHUNK - strm->avail_out;
 
     // now UVProcessAfter will emit the output, and
     // either schedule another call to UVProcess,
@@ -214,8 +222,11 @@ template <int mode> class Flate : public ObjectWrap {
 
     // if there's no avail_out, then it means that it wasn't able to
     // fully consume the input.  Reschedule another call to UVProcess.
-    z_stream strm = self->strm;
-    if (strm.avail_out == 0) {
+    z_stream *strm = &(self->strm);
+    if (strm->avail_out == 0) {
+      //fprintf(stderr, "More work for this one: %d\n", strm->avail_out);
+      //fprintf(stderr, "  avail_in=%d\n", strm->avail_in);
+      //fprintf(stderr, "  next_in=%s\n", strm->next_in);
       uv_queue_work(uv_default_loop(),
                     work_req,
                     Flate<mode>::UVProcess,
@@ -249,6 +260,7 @@ template <int mode> class Flate : public ObjectWrap {
     // If there's anything on the queue, then keep processing.
     // Otherwise, emit a "drain" event if there was a buffered write.
     if (self->req_q_len > 0) {
+      //fprintf(stderr, "something on queue: q_len=%d\n", self->req_q_len);
       // keep processing.
       self->Process();
       return;
@@ -268,11 +280,13 @@ template <int mode> class Flate : public ObjectWrap {
     // if we ended, then no more data is coming, and no more processing
     // needs to be done.  clean up the zstream
     if (self->ended) {
-      z_stream strm = self->strm;
-      if (mode == DEFLATE) {
-        (void)deflateEnd(&strm);
-      } else if (mode == INFLATE) {
-        (void)inflateEnd(&strm);
+      // assert(self->err == Z_STREAM_END);
+      //fprintf(stderr, "ending status=%d\n", self->err);
+      z_stream *strm = &(self->strm);
+      if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
+        (void)deflateEnd(strm);
+      } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
+        (void)inflateEnd(strm);
       }
     }
   }
@@ -301,10 +315,46 @@ template <int mode> class Flate : public ObjectWrap {
     int level_ = args[0]->Int32Value();
     if (level_ < -1 || level_ > 9) {
       return ThrowException(Exception::Error(
-            String::New("Invalid compression level")));
+            String::New("Invalid compression level, must be -1 to 9")));
     }
 
-    self = new Flate<mode>(level_);
+    int windowBits_ = args[1]->Int32Value();
+    if (windowBits_ < 8 || windowBits_ > 15) {
+      return ThrowException(Exception::Error(
+            String::New("Invalid windowBits, must be 8 to 15")));
+    }
+
+    // memLevel and strategy only make sense for compression.
+    int memLevel_ = 8;
+    int strategy_ = Z_DEFAULT_STRATEGY;
+    if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
+      if (args.Length() > 2) {
+        memLevel_ = args[2]->Int32Value();
+        if (memLevel_ < 1 || memLevel_ > 9) {
+          return ThrowException(Exception::Error(
+                String::New("Invalid memory level, must be 1 to 9")));
+        }
+
+        if (args.Length() > 3) {
+          strategy_ = args[3]->Int32Value();
+          switch (strategy_) {
+            case Z_DEFAULT_STRATEGY:
+            case Z_FILTERED:
+            case Z_HUFFMAN_ONLY:
+            case Z_RLE:
+              break;
+            default:
+              return ThrowException(Exception::Error(
+                    String::New("Invalid compression strategy")));
+          }
+        }
+      }
+    }
+
+
+
+
+    self = new Flate<mode>(level_, windowBits_, memLevel_, strategy_);
     if (self->err != Z_OK) {
       const char *msg = self->strm.msg;
       if (msg == NULL) msg = zlib_perr(self->err);
@@ -325,8 +375,12 @@ template <int mode> class Flate : public ObjectWrap {
   bool processing;
 
   int err;
-  int level;
   z_stream strm;
+  int level;
+  int windowBits;
+  int memLevel;
+  int strategy;
+
   int flush;
   bool ended;
   bool need_drain;
@@ -334,11 +388,19 @@ template <int mode> class Flate : public ObjectWrap {
   unsigned char out[CHUNK];
   unsigned have;
 
-  void Init (int level_) {
+  void Init (int level_,
+             int windowBits_,
+             int memLevel_,
+             int strategy_) {
     level = level_;
+    windowBits = windowBits_;
+    memLevel = memLevel_;
+    strategy = strategy_;
+
     strm.zalloc = Z_NULL;
     strm.zfree = Z_NULL;
     strm.opaque = Z_NULL;
+
     flush = Z_NO_FLUSH;
     processing = false;
     ended = false;
@@ -347,10 +409,23 @@ template <int mode> class Flate : public ObjectWrap {
     req_tail = NULL;
     req_q_len = 0;
 
-    if (mode == DEFLATE) {
-      err = deflateInit(&strm, level);
-    } else if (mode == INFLATE) {
-      err = inflateInit(&strm);
+    if (mode == GZIP || mode == GUNZIP) {
+      windowBits += 16;
+    }
+
+    if (mode == DEFLATERAW || mode == INFLATERAW) {
+      windowBits *= -1;
+    }
+
+    if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
+      err = deflateInit2(&strm,
+                         level,
+                         Z_DEFLATED,
+                         windowBits,
+                         memLevel,
+                         strategy);
+    } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
+      err = inflateInit2(&strm, windowBits);
     }
 
     assert(err == Z_OK);
@@ -374,6 +449,34 @@ void InitZlib(Handle<Object> target) {
   NODE_SET_PROTOTYPE_METHOD(def, "end", Flate<DEFLATE>::End);
   def->SetClassName(String::NewSymbol("Deflate"));
   target->Set(String::NewSymbol("Deflate"), def->GetFunction());
+
+  Local<FunctionTemplate> infr = FunctionTemplate::New(Flate<INFLATERAW>::New);
+  infr->InstanceTemplate()->SetInternalFieldCount(1);
+  NODE_SET_PROTOTYPE_METHOD(infr, "write", Flate<INFLATERAW>::Write);
+  NODE_SET_PROTOTYPE_METHOD(infr, "end", Flate<INFLATERAW>::End);
+  infr->SetClassName(String::NewSymbol("InflateRaw"));
+  target->Set(String::NewSymbol("InflateRaw"), infr->GetFunction());
+
+  Local<FunctionTemplate> defr = FunctionTemplate::New(Flate<DEFLATERAW>::New);
+  defr->InstanceTemplate()->SetInternalFieldCount(1);
+  NODE_SET_PROTOTYPE_METHOD(defr, "write", Flate<DEFLATERAW>::Write);
+  NODE_SET_PROTOTYPE_METHOD(defr, "end", Flate<DEFLATERAW>::End);
+  defr->SetClassName(String::NewSymbol("DeflateRaw"));
+  target->Set(String::NewSymbol("DeflateRaw"), defr->GetFunction());
+
+  Local<FunctionTemplate> gz = FunctionTemplate::New(Flate<GZIP>::New);
+  gz->InstanceTemplate()->SetInternalFieldCount(1);
+  NODE_SET_PROTOTYPE_METHOD(gz, "write", Flate<GZIP>::Write);
+  NODE_SET_PROTOTYPE_METHOD(gz, "end", Flate<GZIP>::End);
+  gz->SetClassName(String::NewSymbol("Gzip"));
+  target->Set(String::NewSymbol("Gzip"), gz->GetFunction());
+
+  Local<FunctionTemplate> gun = FunctionTemplate::New(Flate<GUNZIP>::New);
+  gun->InstanceTemplate()->SetInternalFieldCount(1);
+  NODE_SET_PROTOTYPE_METHOD(gun, "write", Flate<GUNZIP>::Write);
+  NODE_SET_PROTOTYPE_METHOD(gun, "end", Flate<GUNZIP>::End);
+  gun->SetClassName(String::NewSymbol("Gunzip"));
+  target->Set(String::NewSymbol("Gunzip"), gun->GetFunction());
 
   ondata_sym = NODE_PSYMBOL("onData");
   onend_sym = NODE_PSYMBOL("onEnd");

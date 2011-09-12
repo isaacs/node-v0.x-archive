@@ -33,8 +33,12 @@ static Persistent<String> ondata_sym;
 static Persistent<String> onend_sym;
 static Persistent<String> ondrain_sym;
 
-#define DEFLATE 0
-#define INFLATE 1
+#define DEFLATE    0
+#define INFLATE    1
+#define GZIP       2
+#define GUNZIP     3
+#define DEFLATERAW 4
+#define INFLATERAW 5
 
 template <int mode> class Flate;
 

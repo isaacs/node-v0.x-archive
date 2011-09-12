@@ -2,7 +2,7 @@
 // just make sure it loads.
 
 var z = require('zlib');
-var df = new z.Deflate(-1);
+var df = new z.Deflate(-1, 15, 8, 0);
 
 console.error("created df", df)
 
@@ -15,8 +15,9 @@ df.onEnd = function () {
 
 console.error("assigned handlers");
 
+process.nextTick(function () {
 df.write(new Buffer("hello"))
-var e = Date.now() + 1000
+var e = Date.now() + 100
   , worlds = ""
 while (Date.now() < e) {
   worlds += " world"
@@ -25,3 +26,4 @@ while (Date.now() < e) {
 console.error("did writes")
 df.end(new Buffer("!"))
 console.error("did end")
+})
