@@ -486,50 +486,25 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
 };
 
 
+#define NODE_ZLIB_CLASS(mode, name)   \
+  { \
+    Local<FunctionTemplate> z = FunctionTemplate::New(Flate<mode>::New); \
+    z->InstanceTemplate()->SetInternalFieldCount(1); \
+    NODE_SET_PROTOTYPE_METHOD(z, "write", Flate<mode>::Write); \
+    NODE_SET_PROTOTYPE_METHOD(z, "end", Flate<mode>::End); \
+    z->SetClassName(String::NewSymbol("name")); \
+    target->Set(String::NewSymbol("name"), z->GetFunction()); \
+  }
+
 void InitZlib(Handle<Object> target) {
   HandleScope scope;
 
-  Local<FunctionTemplate> inf = FunctionTemplate::New(Flate<INFLATE>::New);
-  inf->InstanceTemplate()->SetInternalFieldCount(1);
-  NODE_SET_PROTOTYPE_METHOD(inf, "write", Flate<INFLATE>::Write);
-  NODE_SET_PROTOTYPE_METHOD(inf, "end", Flate<INFLATE>::End);
-  inf->SetClassName(String::NewSymbol("Inflate"));
-  target->Set(String::NewSymbol("Inflate"), inf->GetFunction());
-
-  Local<FunctionTemplate> def = FunctionTemplate::New(Flate<DEFLATE>::New);
-  def->InstanceTemplate()->SetInternalFieldCount(1);
-  NODE_SET_PROTOTYPE_METHOD(def, "write", Flate<DEFLATE>::Write);
-  NODE_SET_PROTOTYPE_METHOD(def, "end", Flate<DEFLATE>::End);
-  def->SetClassName(String::NewSymbol("Deflate"));
-  target->Set(String::NewSymbol("Deflate"), def->GetFunction());
-
-  Local<FunctionTemplate> infr = FunctionTemplate::New(Flate<INFLATERAW>::New);
-  infr->InstanceTemplate()->SetInternalFieldCount(1);
-  NODE_SET_PROTOTYPE_METHOD(infr, "write", Flate<INFLATERAW>::Write);
-  NODE_SET_PROTOTYPE_METHOD(infr, "end", Flate<INFLATERAW>::End);
-  infr->SetClassName(String::NewSymbol("InflateRaw"));
-  target->Set(String::NewSymbol("InflateRaw"), infr->GetFunction());
-
-  Local<FunctionTemplate> defr = FunctionTemplate::New(Flate<DEFLATERAW>::New);
-  defr->InstanceTemplate()->SetInternalFieldCount(1);
-  NODE_SET_PROTOTYPE_METHOD(defr, "write", Flate<DEFLATERAW>::Write);
-  NODE_SET_PROTOTYPE_METHOD(defr, "end", Flate<DEFLATERAW>::End);
-  defr->SetClassName(String::NewSymbol("DeflateRaw"));
-  target->Set(String::NewSymbol("DeflateRaw"), defr->GetFunction());
-
-  Local<FunctionTemplate> gz = FunctionTemplate::New(Flate<GZIP>::New);
-  gz->InstanceTemplate()->SetInternalFieldCount(1);
-  NODE_SET_PROTOTYPE_METHOD(gz, "write", Flate<GZIP>::Write);
-  NODE_SET_PROTOTYPE_METHOD(gz, "end", Flate<GZIP>::End);
-  gz->SetClassName(String::NewSymbol("Gzip"));
-  target->Set(String::NewSymbol("Gzip"), gz->GetFunction());
-
-  Local<FunctionTemplate> gun = FunctionTemplate::New(Flate<GUNZIP>::New);
-  gun->InstanceTemplate()->SetInternalFieldCount(1);
-  NODE_SET_PROTOTYPE_METHOD(gun, "write", Flate<GUNZIP>::Write);
-  NODE_SET_PROTOTYPE_METHOD(gun, "end", Flate<GUNZIP>::End);
-  gun->SetClassName(String::NewSymbol("Gunzip"));
-  target->Set(String::NewSymbol("Gunzip"), gun->GetFunction());
+  NODE_ZLIB_CLASS(INFLATE, Inflate)
+  NODE_ZLIB_CLASS(DEFLATE, Deflate)
+  NODE_ZLIB_CLASS(INFLATERAW, InflateRaw)
+  NODE_ZLIB_CLASS(DEFLATERAW, DeflateRaw)
+  NODE_ZLIB_CLASS(GZIP, Gzip)
+  NODE_ZLIB_CLASS(GUNZIP, Gunzip)
 
   ondata_sym = NODE_PSYMBOL("onData");
   onend_sym = NODE_PSYMBOL("onEnd");
