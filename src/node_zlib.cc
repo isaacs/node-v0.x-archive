@@ -46,9 +46,8 @@ using namespace v8;
 typedef ReqWrap<uv_work_t> WorkReqWrap;
 
 static Persistent<String> ondata_sym;
-static Persistent<String> onend_sym;
-static Persistent<String> ondrain_sym;
 static Persistent<String> buffer_sym;
+static Persistent<String> callback_sym;
 
 enum node_zlib_mode {
   DEFLATE = 1,
@@ -60,20 +59,6 @@ enum node_zlib_mode {
 };
 
 template <node_zlib_mode mode> class Flate;
-
-template <node_zlib_mode mode> struct flate_req {
-  Flate<mode>* self;
-  size_t len;
-  int flush;
-  Bytef* buf;
-  bool started;
-  Persistent<Value> callback;
-};
-
-template <node_zlib_mode mode> struct flate_req_q {
-  flate_req<mode> *req;
-  flate_req_q<mode> *next;
-};
 
 
 void InitZlib(v8::Handle<v8::Object> target);
@@ -110,114 +95,84 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
   }
 
   ~Flate() {
+    if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
+      (void)deflateEnd(&strm);
+    } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
+      (void)inflateEnd(&strm);
+    }
     free(out);
   }
 
+  // write(chunk, flush, cb)
   static Handle<Value> Write(const Arguments& args) {
-    // last arg must be a callback.
-    // any other arg must be a buffer.
 
-    int argLen = args.Length();
-    Persistent<Value> callback;
-    size_t len;
-    Bytef* buf;
-    if (args[argLen - 1]->IsFunction()) {
-      argLen --;
-      callback = Persistent<Value>::New(args[argLen - 1]);
-    } else {
+    if (args.Length() != 3) {
         return ThrowException(Exception::Error(
-                    String::New("Last argument needs to be a function")));
+                    String::New("usage: write(chunk, flush, cb)")));
     }
 
-    if (argLen < 1) {
-      // just a flush or end call
+    Bytef* buf;
+    size_t len;
+    Local<Object> buffer_obj;
+    Local<Function> callback;
+
+    if (args[0]->IsNull()) {
       buf = (Bytef *)"\0";
       len = 0;
-    } else {
-      if (!Buffer::HasInstance(args[0])) {
-        return ThrowException(Exception::Error(
-                    String::New("First argument needs to be a buffer")));
-      }
-
-      Local<Object> buffer_obj = args[0]->ToObject();
-      callback->ToObject()->Set(buffer_sym, buffer_obj);
+    } else if (Buffer::HasInstance(args[0])) {
+      buffer_obj = args[0]->ToObject();
       buf = (Bytef *)Buffer::Data(buffer_obj);
       len = Buffer::Length(buffer_obj);
+    } else {
+      return ThrowException(Exception::Error(
+                  String::New("First arg must be a buffer or null")));
     }
+
+    unsigned int flush = args[1]->Uint32Value();
+
+    if (!args[2]->IsFunction()) {
+      return ThrowException(Exception::Error(
+                  String::New("Last argument must be a function")));
+    }
+
+    callback = Local<Function>::Cast(args[2]);
 
     Flate<mode> *self = ObjectWrap::Unwrap< Flate<mode> >(args.This());
 
-    if (self->ended) {
-      return ThrowException(Exception::Error(
-                  String::New("Cannot write after end()")));
+    WorkReqWrap *req_wrap = new WorkReqWrap();
+    if (!buffer_obj.IsEmpty()) {
+      req_wrap->object_->Set(buffer_sym, buffer_obj);
     }
+    req_wrap->object_->Set(callback_sym, callback);
+    req_wrap->data_ = self;
 
-    // create the flate_req
-    flate_req<mode> *req = new flate_req<mode>;
-    req->self = self;
-    req->callback = callback;
-    req->len = len;
-    req->buf = buf;
-    // set to Z_NO_FLUSH normally, or Z_FINISH when called as .end()
-    req->flush = self->flush;
-
-    // add to the queue
-    flate_req_q<mode> *t = self->req_tail;
-    flate_req_q<mode> *h = self->req_head;
-    flate_req_q<mode> *q = new flate_req_q<mode>();
-    q->req = req;
-    q->next = NULL;
-    if (!self->req_head || !self->req_tail) {
-      self->req_head = h = self->req_tail = t = q;
-    } else {
-      t->next = q;
-      t = self->req_tail = q;
-    }
-
-    bool ret = self->req_q_len == 0;
-    self->need_drain = !ret;
-    self->req_q_len ++;
-
-    // if it's already processing, then this is a noop
-    self->Process();
-
-    // backpressure.
-    return Boolean::New(ret);
-  }
-
-
-  void Process() {
-    if (processing || req_head == NULL) return;
-
-    // we're now processing a write
-    processing = true;
-
-    // set up the uv_work_t request
-    uv_work_t* work_req = new uv_work_t();
-    work_req->data = req_head->req;
-
-    Flate<mode> *self = req_head->req->self;
     z_stream *strm = &(self->strm);
-    strm->avail_in = req_head->req->len;
-    strm->next_in = req_head->req->buf;
+    strm->avail_in = len;
+    strm->next_in = buf;
+    self->flush = flush;
 
-    //fprintf(stderr, "heading to thread queue %d\n", strm->avail_in);
-    //fprintf(stderr, "heading to thread queue %d\n", strm->avail_in);
+    // build up the work request
+    uv_work_t* work_req = new uv_work_t();
+    work_req->data = req_wrap;
+
     uv_queue_work(uv_default_loop(),
                   work_req,
-                  Flate<mode>::UVProcess,
-                  Flate<mode>::UVProcessAfter);
-    return;
+                  Flate<mode>::Process,
+                  Flate<mode>::After);
+
+    req_wrap->Dispatched();
+
+    return req_wrap->object_;
   }
+
 
   // thread pool!
   // This function may be called multiple times on the uv_work pool
-  // until all of the input bytes have been exhausted.
-  static void UVProcess(uv_work_t* work_req) {
-    //fprintf(stderr, "UVProcess\n");
-    flate_req<mode> *req = (flate_req<mode> *)work_req->data;
-
-    Flate<mode> *self = req->self;
+  // for a single write() call, until all of the input bytes have
+  // been consumed.
+  static void Process(uv_work_t* work_req) {
+    WorkReqWrap *req_wrap = (WorkReqWrap *)work_req->data;
+    Flate<mode> *self = (Flate<mode> *)req_wrap->data_;
     z_stream *strm = &(self->strm);
 
     strm->avail_out = self->chunk_size;
@@ -227,28 +182,35 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
     // of room.  If there was avail_out left over, then it means
     // that all of the input was consumed.
     if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
-      self->err = deflate(strm, req->flush);
+      self->err = deflate(strm, self->flush);
     } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
-      //fprintf(stderr, "UVProcess pre-inflate\n");
-      self->err = inflate(strm, req->flush);
-      //fprintf(stderr, "UVProcess post-inflate\n");
+      self->err = inflate(strm, self->flush);
     }
 
     assert(self->err != Z_STREAM_ERROR);
-    self->have = self->chunk_size - strm->avail_out;
 
-    // now UVProcessAfter will emit the output, and
-    // either schedule another call to UVProcess,
+    // now After will emit the output, and
+    // either schedule another call to Process,
     // or shift the queue and call Process.
   }
 
   // v8 land!
-  static void UVProcessAfter(uv_work_t* work_req) {
-    flate_req<mode> *req = (flate_req<mode> *)work_req->data;
+  static void After(uv_work_t* work_req) {
+    WorkReqWrap *req_wrap = (WorkReqWrap *)work_req->data;
+    Flate<mode> *self = (Flate<mode> *)req_wrap->data_;
+    z_stream *strm = &(self->strm);
 
-    Flate<mode> *self = req->self;
-    if (self->have > 0) {
-      Buffer* flated = Buffer::New((char *)(self->out), self->have);
+    int have = self->chunk_size - strm->avail_out;
+
+    // Handle<Value> n = self->handle_
+    //                       ->ToObject()->Get(String::New("prototype"))
+    //                       ->ToObject()->Get(String::New("constructor"))
+    //                       ->ToObject()->Get(String::New("name"));
+    // String::Utf8Value name(n->ToString());
+
+    if (have > 0) {
+      // got some output
+      Buffer* flated = Buffer::New((char *)(self->out), have);
       if (self->handle_->Has(ondata_sym)) {
         Handle<Value> od = self->handle_->Get(ondata_sym);
         assert(od->IsFunction());
@@ -256,100 +218,27 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
         Handle<Value> odargv[1] = { flated->handle_ };
         ondata->Call(self->handle_, 1, odargv);
       }
-      memset(self->out, '\0', self->have);
+      // necessary?
+      // memset(self->out, '\0', have);
     }
 
     // if there's no avail_out, then it means that it wasn't able to
-    // fully consume the input.  Reschedule another call to UVProcess.
-    z_stream *strm = &(self->strm);
+    // fully consume the input.  Reschedule another call to Process.
     if (strm->avail_out == 0) {
-      //fprintf(stderr, "More work for this one: %d\n", strm->avail_out);
-      //fprintf(stderr, "  avail_in=%d\n", strm->avail_in);
-      //fprintf(stderr, "  next_in=%s\n", strm->next_in);
       uv_queue_work(uv_default_loop(),
                     work_req,
-                    Flate<mode>::UVProcess,
-                    Flate<mode>::UVProcessAfter);
+                    Flate<mode>::Process,
+                    Flate<mode>::After);
       return;
     }
 
-    // no longer processing this request.
-    self->processing = false;
+    // call the write() cb
+    Local<Function> callback =
+      Local<Function>::Cast(req_wrap->object_->Get(callback_sym));
+    callback->Call(self->handle_, 0, NULL);
 
-    // shift the queue
-    flate_req_q<mode> *h = self->req_head;
-    if (h != NULL) {
-      flate_req_q<mode> *t = self->req_tail;
-      self->req_head = self->req_head->next;
-      if (t == h) {
-        t = NULL;
-      }
-      free(h);
-      self->req_q_len --;
-    } else {
-      self->req_q_len = 0;
-    }
-
-    // df.write("data", cb)
-    if (req->callback->IsFunction()) {
-      Handle<Function> callback = Handle<Function>::Cast(req->callback);
-      callback->Call(self->handle_, 0, NULL);
-    }
-
-    // If there's anything on the queue, then keep processing.
-    // Otherwise, emit a "drain" event if there was a buffered write.
-    if (self->req_q_len > 0) {
-      //fprintf(stderr, "something on queue: q_len=%d\n", self->req_q_len);
-      // keep processing.
-      self->Process();
-      return;
-    }
-
-    // check if we need a drain event, and have a listener.
-    if (self->need_drain) {
-      self->need_drain = false;
-      if (self->handle_->Has(ondrain_sym)) {
-        Handle<Value> od = self->handle_->Get(ondrain_sym);
-        assert(od->IsFunction());
-        Handle<Function> ondrain = Handle<Function>::Cast(od);
-        ondrain->Call(self->handle_, 0, NULL);
-      }
-    }
-
-    // if we ended, then no more data is coming, and no more processing
-    // needs to be done.  clean up the zstream
-    if (self->ended) {
-      // assert(self->err == Z_STREAM_END);
-      //fprintf(stderr, "ending status=%d\n", self->err);
-      z_stream *strm = &(self->strm);
-      if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
-        (void)deflateEnd(strm);
-      } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
-        (void)inflateEnd(strm);
-      }
-      if (self->handle_->Has(onend_sym)) {
-        Handle<Value> oe = self->handle_->Get(onend_sym);
-        assert(oe->IsFunction());
-        Handle<Function> onend = Handle<Function>::Cast(oe);
-        onend->Call(self->handle_, 0, NULL);
-      }
-    }
-  }
-
-  static Handle<Value> End(const Arguments& args) {
-    HandleScope scope;
-
-    Handle<Value> ret;
-    Flate<mode> *self = ObjectWrap::Unwrap< Flate<mode> >(args.This());
-
-    // flush the remaining bytes.
-    self->flush = Z_FINISH;
-    if ( args.Length() >= 1 ) {
-      ret = self->Write(args);
-    }
-
-    self->ended = true;
-    return ret;
+    // delete the ReqWrap
+    delete req_wrap;
   }
 
   static Handle<Value> New(const Arguments& args) {
@@ -423,11 +312,6 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
 
  private:
 
-  flate_req_q<mode> *req_head;
-  flate_req_q<mode> *req_tail;
-  int req_q_len;
-  bool processing;
-
   int err;
   z_stream strm;
   int level;
@@ -436,12 +320,9 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
   int strategy;
 
   int flush;
-  bool ended;
-  bool need_drain;
 
   Bytef *out;
   int chunk_size;
-  unsigned have;
 
   void Init (int chunk_size_,
              int level_,
@@ -455,19 +336,14 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
     strategy = strategy_;
 
     out = (Bytef *)malloc(chunk_size);
-    memset(out, '\0', chunk_size);
+    // necessary?
+    // memset(out, '\0', chunk_size);
 
     strm.zalloc = Z_NULL;
     strm.zfree = Z_NULL;
     strm.opaque = Z_NULL;
 
     flush = Z_NO_FLUSH;
-    processing = false;
-    ended = false;
-    need_drain = false;
-    req_head = NULL;
-    req_tail = NULL;
-    req_q_len = 0;
 
     if (mode == GZIP || mode == GUNZIP) {
       windowBits += 16;
@@ -498,7 +374,6 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
     Local<FunctionTemplate> z = FunctionTemplate::New(Flate<mode>::New); \
     z->InstanceTemplate()->SetInternalFieldCount(1); \
     NODE_SET_PROTOTYPE_METHOD(z, "write", Flate<mode>::Write); \
-    NODE_SET_PROTOTYPE_METHOD(z, "end", Flate<mode>::End); \
     z->SetClassName(String::NewSymbol(name)); \
     target->Set(String::NewSymbol(name), z->GetFunction()); \
   }
@@ -514,9 +389,8 @@ void InitZlib(Handle<Object> target) {
   NODE_ZLIB_CLASS(GUNZIP, "Gunzip")
 
   ondata_sym = NODE_PSYMBOL("onData");
-  onend_sym = NODE_PSYMBOL("onEnd");
-  ondrain_sym = NODE_PSYMBOL("onDrain");
-  buffer_sym = NODE_PSYMBOL("_buffer");
+  buffer_sym = NODE_PSYMBOL("buffer");
+  callback_sym = NODE_PSYMBOL("callback");
 }
 
 }  // namespace node

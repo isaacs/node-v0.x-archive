@@ -2,42 +2,40 @@
 // just make sure it loads.
 
 var z = require('zlib');
-var df = new z.DeflateRaw(0, -1, 15, 8, 0);
-var inf = new z.InflateRaw(0, -1, 15);
+var df = new z.Gzip();
+var inf = new z.Gunzip();
+var events = require("events");
 
-console.error("created df", df)
+df.pipe(inf);
 
-df.onData = function (c) {
-  inf.write(c, function () {});
-};
-df.onEnd = function () {
-  console.error('df onEnd');
-  inf.end(function () {});
-};
+df.on("data", function (c) {
+  console.error("deflated data", c.length);
+});
 
-inf.onData = function (c) {
-  //process.stdout.write(c);
-  console.error('has null',
-                c.toString().indexOf("\u0000"),
-                c.length);
-  if (c.toString().indexOf("\u0000")) {
-    console.log(JSON.stringify(c.toString()))
-  }
-}
-inf.onEnd = function () {
+df.on("end", function () {
+  console.error("deflated end");
+});
+
+inf.on('data', function (c) {
+  process.stdout.write(c);
+});
+
+inf.on('end', function () {
   console.error("inflated end");
-}
+});
 
 console.error("assigned handlers");
 
-df.write(new Buffer("hello"), function () {})
-var e = Date.now() + 100
-  , worlds = " hello world"
-while (Date.now() < e) {
-  //worlds += " world"
-  df.write(new Buffer(worlds), function () {})
+df.write(new Buffer("start"), function () {})
+var e = 1000
+  , worlds = " hello world " + e
+while (e --> 0) {
+  worlds += " world " + e
+  df.write(worlds + "\n")
+  console.error("wrote %s", worlds);
   //console.log(new Buffer(worlds).toString())
 }
+console.error("max world len = "+worlds.length);
 console.error("did writes")
-df.end(new Buffer(" hello world "), function (){})
+df.end("\n---\nend", function (){})
 console.error("did end")
