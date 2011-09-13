@@ -281,6 +281,7 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
             case Z_FILTERED:
             case Z_HUFFMAN_ONLY:
             case Z_RLE:
+            case Z_FIXED:
               break;
             default:
               return ThrowException(Exception::Error(
