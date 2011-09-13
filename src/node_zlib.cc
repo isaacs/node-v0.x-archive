@@ -58,7 +58,7 @@ enum node_zlib_mode {
   INFLATERAW
 };
 
-template <node_zlib_mode mode> class Flate;
+template <node_zlib_mode mode> class Zlib;
 
 
 void InitZlib(v8::Handle<v8::Object> target);
@@ -82,11 +82,11 @@ const char * zlib_perr(int code)
 /**
  * Deflate/Inflate
  */
-template <node_zlib_mode mode> class Flate : public ObjectWrap {
+template <node_zlib_mode mode> class Zlib : public ObjectWrap {
 
  public:
 
-  Flate(int chunk_size,
+  Zlib(int chunk_size,
         int level,
         int windowBits,
         int memLevel,
@@ -94,7 +94,7 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
     Init(chunk_size, level, windowBits, memLevel, strategy);
   }
 
-  ~Flate() {
+  ~Zlib() {
     if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
       (void)deflateEnd(&strm);
     } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
@@ -137,7 +137,7 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
 
     callback = Local<Function>::Cast(args[2]);
 
-    Flate<mode> *self = ObjectWrap::Unwrap< Flate<mode> >(args.This());
+    Zlib<mode> *self = ObjectWrap::Unwrap< Zlib<mode> >(args.This());
 
     WorkReqWrap *req_wrap = new WorkReqWrap();
     if (!buffer_obj.IsEmpty()) {
@@ -157,8 +157,8 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
 
     uv_queue_work(uv_default_loop(),
                   work_req,
-                  Flate<mode>::Process,
-                  Flate<mode>::After);
+                  Zlib<mode>::Process,
+                  Zlib<mode>::After);
 
     req_wrap->Dispatched();
 
@@ -172,7 +172,7 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
   // been consumed.
   static void Process(uv_work_t* work_req) {
     WorkReqWrap *req_wrap = (WorkReqWrap *)work_req->data;
-    Flate<mode> *self = (Flate<mode> *)req_wrap->data_;
+    Zlib<mode> *self = (Zlib<mode> *)req_wrap->data_;
     z_stream *strm = &(self->strm);
 
     strm->avail_out = self->chunk_size;
@@ -197,7 +197,7 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
   // v8 land!
   static void After(uv_work_t* work_req) {
     WorkReqWrap *req_wrap = (WorkReqWrap *)work_req->data;
-    Flate<mode> *self = (Flate<mode> *)req_wrap->data_;
+    Zlib<mode> *self = (Zlib<mode> *)req_wrap->data_;
     z_stream *strm = &(self->strm);
 
     int have = self->chunk_size - strm->avail_out;
@@ -227,8 +227,8 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
     if (strm->avail_out == 0) {
       uv_queue_work(uv_default_loop(),
                     work_req,
-                    Flate<mode>::Process,
-                    Flate<mode>::After);
+                    Zlib<mode>::Process,
+                    Zlib<mode>::After);
       return;
     }
 
@@ -244,7 +244,7 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
   static Handle<Value> New(const Arguments& args) {
     HandleScope scope;
 
-    Flate<mode> *self;
+    Zlib<mode> *self;
 
     int chunk_size_ = args[0]->Uint32Value();
     if (chunk_size_ == 0) {
@@ -293,11 +293,11 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
 
 
 
-    self = new Flate<mode>(chunk_size_,
-                           level_,
-                           windowBits_,
-                           memLevel_,
-                           strategy_);
+    self = new Zlib<mode>(chunk_size_,
+                          level_,
+                          windowBits_,
+                          memLevel_,
+                          strategy_);
     if (self->err != Z_OK) {
       const char *msg = self->strm.msg;
       if (msg == NULL) msg = zlib_perr(self->err);
@@ -371,9 +371,9 @@ template <node_zlib_mode mode> class Flate : public ObjectWrap {
 
 #define NODE_ZLIB_CLASS(mode, name)   \
   { \
-    Local<FunctionTemplate> z = FunctionTemplate::New(Flate<mode>::New); \
+    Local<FunctionTemplate> z = FunctionTemplate::New(Zlib<mode>::New); \
     z->InstanceTemplate()->SetInternalFieldCount(1); \
-    NODE_SET_PROTOTYPE_METHOD(z, "write", Flate<mode>::Write); \
+    NODE_SET_PROTOTYPE_METHOD(z, "write", Zlib<mode>::Write); \
     z->SetClassName(String::NewSymbol(name)); \
     target->Set(String::NewSymbol(name), z->GetFunction()); \
   }
