@@ -379,6 +379,11 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
     target->Set(String::NewSymbol(name), z->GetFunction()); \
   }
 
+#define NODE_ZLIB_CONST(name) \
+  { \
+    target->Set(String::NewSymbol(#name), Integer::New(name)); \
+  }
+
 void InitZlib(Handle<Object> target) {
   HandleScope scope;
 
@@ -392,6 +397,34 @@ void InitZlib(Handle<Object> target) {
   ondata_sym = NODE_PSYMBOL("onData");
   buffer_sym = NODE_PSYMBOL("buffer");
   callback_sym = NODE_PSYMBOL("callback");
+
+  NODE_DEFINE_CONSTANT(target, Z_NO_FLUSH);
+  NODE_DEFINE_CONSTANT(target, Z_PARTIAL_FLUSH);
+  NODE_DEFINE_CONSTANT(target, Z_SYNC_FLUSH    );
+  NODE_DEFINE_CONSTANT(target, Z_FULL_FLUSH    );
+  NODE_DEFINE_CONSTANT(target, Z_FINISH        );
+  NODE_DEFINE_CONSTANT(target, Z_BLOCK         );
+  NODE_DEFINE_CONSTANT(target, Z_OK            );
+  NODE_DEFINE_CONSTANT(target, Z_STREAM_END    );
+  NODE_DEFINE_CONSTANT(target, Z_NEED_DICT     );
+  NODE_DEFINE_CONSTANT(target, Z_ERRNO        );
+  NODE_DEFINE_CONSTANT(target, Z_STREAM_ERROR );
+  NODE_DEFINE_CONSTANT(target, Z_DATA_ERROR   );
+  NODE_DEFINE_CONSTANT(target, Z_MEM_ERROR    );
+  NODE_DEFINE_CONSTANT(target, Z_BUF_ERROR    );
+  NODE_DEFINE_CONSTANT(target, Z_VERSION_ERROR);
+  NODE_DEFINE_CONSTANT(target, Z_NO_COMPRESSION       );
+  NODE_DEFINE_CONSTANT(target, Z_BEST_SPEED           );
+  NODE_DEFINE_CONSTANT(target, Z_BEST_COMPRESSION     );
+  NODE_DEFINE_CONSTANT(target, Z_DEFAULT_COMPRESSION  );
+  NODE_DEFINE_CONSTANT(target, Z_FILTERED        );
+  NODE_DEFINE_CONSTANT(target, Z_HUFFMAN_ONLY    );
+  NODE_DEFINE_CONSTANT(target, Z_RLE             );
+  NODE_DEFINE_CONSTANT(target, Z_FIXED           );
+  NODE_DEFINE_CONSTANT(target, Z_DEFAULT_STRATEGY);
+  NODE_DEFINE_CONSTANT(target, ZLIB_VERNUM );
+
+  target->Set(String::NewSymbol("ZLIB_VERSION"), String::New(ZLIB_VERSION));
 }
 
 }  // namespace node
