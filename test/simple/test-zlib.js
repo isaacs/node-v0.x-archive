@@ -42,7 +42,6 @@ var level = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 var windowBits = [8, 9, 10, 11, 12, 13, 14, 15];
 var memLevel = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 var strategy = [0, 1, 2, 3, 4];
-var sync = [true, false];
 
 // it's nice in theory to test every combination, but it
 // takes WAY too long.  Maybe a pummel test could do this?
@@ -52,7 +51,6 @@ level = [6];
 memLevel = [8];
 windowBits = [15];
 strategy = [0];
-sync = [true, false];
 
 var fs = require('fs');
 
@@ -153,7 +151,6 @@ var done = 0;
 
 Object.keys(tests).forEach(function(file) {
   var test = tests[file];
-  sync.forEach(function(sync) {
   chunkSize.forEach(function(chunkSize) {
   trickle.forEach(function(trickle) {
   windowBits.forEach(function(windowBits) {
@@ -165,7 +162,6 @@ Object.keys(tests).forEach(function(file) {
       var Inf = pair[1];
       var opts = { level: level,
                    windowBits: windowBits,
-                   sync: sync,
                    memLevel: memLevel,
                    strategy: strategy };
 
@@ -211,7 +207,7 @@ Object.keys(tests).forEach(function(file) {
       ss.pipe(def).pipe(inf).pipe(buf);
       ss.end(test);
     });
-  }); }); }); }); }); }); }); // sad stallman is sad.
+  }); }); }); }); }); }); // sad stallman is sad.
 });
 
 process.on('exit', function(code) {

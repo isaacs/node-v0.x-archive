@@ -89,10 +89,9 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
   Zlib(int chunk_size,
         int level,
         int windowBits,
-        bool sync,
         int memLevel,
         int strategy) : ObjectWrap() {
-    Init(chunk_size, level, windowBits, sync, memLevel, strategy);
+    Init(chunk_size, level, windowBits, memLevel, strategy);
   }
 
   ~Zlib() {
@@ -156,19 +155,12 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
     uv_work_t* work_req = new uv_work_t();
     work_req->data = req_wrap;
 
-    if (!self->sync) {
-      uv_queue_work(uv_default_loop(),
-                    work_req,
-                    Zlib<mode>::Process,
-                    Zlib<mode>::After);
-      req_wrap->Dispatched();
-    } else {
-      // sync, set the dispatched flags first, since otherwise it'll
-      // think we forgot this one.
-      req_wrap->Dispatched();
-      Zlib<mode>::Process(work_req);
-      Zlib<mode>::After(work_req);
-    }
+    uv_queue_work(uv_default_loop(),
+                  work_req,
+                  Zlib<mode>::Process,
+                  Zlib<mode>::After);
+
+    req_wrap->Dispatched();
 
     return req_wrap->object_;
   }
@@ -233,17 +225,10 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
     // if there's no avail_out, then it means that it wasn't able to
     // fully consume the input.  Reschedule another call to Process.
     if (strm->avail_out == 0) {
-      if (!self->sync) {
-        uv_queue_work(uv_default_loop(),
-                      work_req,
-                      Zlib<mode>::Process,
-                      Zlib<mode>::After);
-      } else {
-        while (strm->avail_out == 0) {
-          Zlib<mode>::Process(work_req);
-          Zlib<mode>::After(work_req);
-        }
-      }
+      uv_queue_work(uv_default_loop(),
+                    work_req,
+                    Zlib<mode>::Process,
+                    Zlib<mode>::After);
       return;
     }
 
@@ -266,42 +251,31 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
       chunk_size_ = DEFAULT_CHUNK;
     }
 
-    int level_ = -2;
-    if (args.Length() > 1) {
-      level_ = args[1]->Int32Value();
-    }
+    int level_ = args[1]->Int32Value();
     if (level_ < -1 || level_ > 9) {
       return ThrowException(Exception::Error(
             String::New("Invalid compression level, must be -1 to 9")));
     }
 
-    int windowBits_ = 0;
-    if (args.Length() > 2) {
-      windowBits_ = args[2]->Int32Value();
-    }
+    int windowBits_ = args[2]->Int32Value();
     if (windowBits_ < 8 || windowBits_ > 15) {
       return ThrowException(Exception::Error(
             String::New("Invalid windowBits, must be 8 to 15")));
-    }
-
-    bool sync_ = false;
-    if (args.Length() > 3) {
-      sync_ = args[3]->BooleanValue();
     }
 
     // memLevel and strategy only make sense for compression.
     int memLevel_ = 8;
     int strategy_ = Z_DEFAULT_STRATEGY;
     if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
-      if (args.Length() > 4) {
-        memLevel_ = args[4]->Int32Value();
+      if (args.Length() > 3) {
+        memLevel_ = args[3]->Int32Value();
         if (memLevel_ < 1 || memLevel_ > 9) {
           return ThrowException(Exception::Error(
                 String::New("Invalid memory level, must be 1 to 9")));
         }
 
-        if (args.Length() > 5) {
-          strategy_ = args[5]->Int32Value();
+        if (args.Length() > 4) {
+          strategy_ = args[4]->Int32Value();
           switch (strategy_) {
             case Z_DEFAULT_STRATEGY:
             case Z_FILTERED:
@@ -323,7 +297,6 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
     self = new Zlib<mode>(chunk_size_,
                           level_,
                           windowBits_,
-                          sync_,
                           memLevel_,
                           strategy_);
     if (self->err != Z_OK) {
@@ -344,7 +317,6 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
   z_stream strm;
   int level;
   int windowBits;
-  bool sync;
   int memLevel;
   int strategy;
 
@@ -356,13 +328,11 @@ template <node_zlib_mode mode> class Zlib : public ObjectWrap {
   void Init (int chunk_size_,
              int level_,
              int windowBits_,
-             bool sync_,
              int memLevel_,
              int strategy_) {
     chunk_size = chunk_size_;
     level = level_;
     windowBits = windowBits_;
-    sync = sync_;
     memLevel = memLevel_;
     strategy = strategy_;
 
