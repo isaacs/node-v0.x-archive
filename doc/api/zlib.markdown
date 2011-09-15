@@ -52,16 +52,16 @@ the header.
 
 ### Options
 
-Each class takes an options object.
+Each class takes an options object.  All options are optional.
 
 Note that some options are only
 relevant when compressing, and are ignored by the decompression classes.
 
 * chunkSize
 * windowBits
-* level
-* memLevel
-* strategy
+* level (compression only)
+* memLevel (compression only)
+* strategy (compression only)
 
 See the description of `deflateInit2` and `inflateInit2` at
 <http://zlib.net/manual.html#Advanced> for more information on these.
