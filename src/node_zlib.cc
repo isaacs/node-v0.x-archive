@@ -37,8 +37,7 @@
 
 
 namespace node {
-
-using namespace v8;
+namespace v8 {
 
 // write() returns one of these, and then calls the cb() when it's done.
 typedef ReqWrap<uv_work_t> WorkReqWrap;
@@ -359,6 +358,6 @@ void InitZlib(Handle<Object> target) {
   target->Set(String::NewSymbol("ZLIB_VERSION"), String::New(ZLIB_VERSION));
 }
 
-}  // namespace node
+}}  // namespace node
 
 NODE_MODULE(node_zlib, node::InitZlib);
