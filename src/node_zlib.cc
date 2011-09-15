@@ -54,7 +54,8 @@ enum node_zlib_mode {
   GZIP,
   GUNZIP,
   DEFLATERAW,
-  INFLATERAW
+  INFLATERAW,
+  UNZIP
 };
 
 template <node_zlib_mode mode> class ZCtx;
@@ -267,6 +268,10 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
       ctx->windowBits_ += 16;
     }
 
+    if (mode == UNZIP) {
+      ctx->windowBits_ += 32;
+    }
+
     if (mode == DEFLATERAW || mode == INFLATERAW) {
       ctx->windowBits_ *= -1;
     }
@@ -324,6 +329,7 @@ void InitZlib(Handle<Object> target) {
   NODE_ZLIB_CLASS(DEFLATERAW, "DeflateRaw")
   NODE_ZLIB_CLASS(GZIP, "Gzip")
   NODE_ZLIB_CLASS(GUNZIP, "Gunzip")
+  NODE_ZLIB_CLASS(UNZIP, "Unzip")
 
   ondata_sym = NODE_PSYMBOL("onData");
   callback_sym = NODE_PSYMBOL("callback");

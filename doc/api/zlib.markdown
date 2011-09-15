@@ -45,6 +45,11 @@ Compress data using deflate, and do not append a zlib header.
 
 Decompress a raw deflate stream.
 
+### zlib.Unzip
+
+Decompress either a Gzip- or Deflate-compressed stream by auto-detecting
+the header.
+
 ### Options
 
 Each class takes an options object.
@@ -53,8 +58,8 @@ Note that some options are only
 relevant when compressing, and are ignored by the decompression classes.
 
 * chunkSize
-* level
 * windowBits
+* level
 * memLevel
 * strategy
 
