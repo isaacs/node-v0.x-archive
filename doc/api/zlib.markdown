@@ -57,7 +57,7 @@ Each class takes an options object.  All options are optional.
 Note that some options are only
 relevant when compressing, and are ignored by the decompression classes.
 
-* chunkSize (default: 1024*1024)
+* chunkSize (default: 16*1024)
 * windowBits
 * level (compression only)
 * memLevel (compression only)
@@ -92,4 +92,4 @@ that is, 32K for windowBits=15 (default value) plus a few kilobytes
 for small objects.
 
 This is in addition to a single internal output slab buffer of size
-`chunkSize`, which defaults to 1MB.
+`chunkSize`, which defaults to 16K.
