@@ -190,10 +190,8 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
     // call the write() cb
     assert(req_wrap->object_->Get(callback_sym)->IsFunction() &&
            "Invalid callback");
-    Local<Function> callback =
-      Local<Function>::Cast(req_wrap->object_->Get(callback_sym));
     Local<Value> args[2] = { avail_in, avail_out };
-    callback->Call(ctx->handle_, 2, args);
+    MakeCallback(req_wrap->object_, "callback", 2, args);
 
     // delete the ReqWrap
     delete req_wrap;
