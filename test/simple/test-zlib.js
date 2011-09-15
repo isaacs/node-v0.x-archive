@@ -179,7 +179,7 @@ Object.keys(tests).forEach(function(file) {
         var msg = file + ' ' +
                   chunkSize + ' ' +
                   JSON.stringify(opts) + ' ' +
-                  Def.name;
+                  Def.name + ' -> ' + Inf.name;
         var ok = true;
         var testNum = ++done;
         for (var i = 0; i < c.length; i++) {
@@ -195,7 +195,7 @@ Object.keys(tests).forEach(function(file) {
           console.log('not ok ' + (testNum) + ' ' + msg);
           console.log('  ...');
           console.log('  testfile: ' + file);
-          console.log('  type: ' + Def.name + '/' + Inf.name);
+          console.log('  type: ' + Def.name + ' -> ' + Inf.name);
           console.log('  position: ' + i);
           console.log('  options: ' + JSON.stringify(opts));
           console.log('  expect: ' + test[i]);

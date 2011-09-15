@@ -81,42 +81,54 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
     } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
       (void)inflateEnd(&strm_);
     }
-    free(out_);
   }
 
-  // write(chunk, flush, cb)
+  // write(flush, in, in_off, in_len, out, out_off, out_len)
   static Handle<Value>
   Write(const Arguments& args) {
-    if (args.Length() != 2) {
-      assert(0 && "usage: write(chunk, flush)");
-    }
-
-    Bytef* buf;
-    size_t len;
-
-    if (args[0]->IsNull()) {
-      buf = (Bytef *)"\0";
-      len = 0;
-    } else if (Buffer::HasInstance(args[0])) {
-      Local<Object> buffer_obj;
-      buffer_obj = args[0]->ToObject();
-      buf = (Bytef *)Buffer::Data(buffer_obj);
-      len = Buffer::Length(buffer_obj);
-    } else {
-      assert(0 && "First arg must be a buffer or null");
-    }
-
-    unsigned int flush = args[1]->Uint32Value();
+    assert(args.Length() == 7);
 
     ZCtx<mode> *ctx = ObjectWrap::Unwrap< ZCtx<mode> >(args.This());
-    assert(ctx->init_done_ && "init not done");
+    assert(ctx->init_done_ && "write before init");
+
+    unsigned int flush = args[0]->Uint32Value();
+    Bytef *in, *out;
+    size_t in_off, in_len, out_off, out_len;
+
+    if (args[1]->IsNull()) {
+      // just a flush
+      in = (Bytef *)"\0";
+      in_len = 0;
+      in_off = 0;
+    } else {
+      assert(Buffer::HasInstance(args[1]));
+      Local<Object> in_buf;
+      in_buf = args[1]->ToObject();
+      in_off = (size_t)args[2]->Uint32Value();
+      in_len = (size_t)args[3]->Uint32Value();
+
+      assert(in_off + in_len <= Buffer::Length(in_buf));
+      in = (Bytef *)(Buffer::Data(in_buf) + in_off);
+    }
+
+    assert(Buffer::HasInstance(args[4]));
+    Local<Object> out_buf = args[4]->ToObject();
+    out_off = (size_t)args[5]->Uint32Value();
+    out_len = (size_t)args[6]->Uint32Value();
+    assert(out_off + out_len <= Buffer::Length(out_buf));
+    out = (Bytef *)(Buffer::Data(out_buf) + out_off);
 
     WorkReqWrap *req_wrap = new WorkReqWrap();
 
     req_wrap->data_ = ctx;
-    ctx->strm_.avail_in = len;
-    ctx->strm_.next_in = buf;
+    ctx->strm_.avail_in = in_len;
+    ctx->strm_.next_in = in;
+    ctx->strm_.avail_out = out_len;
+    ctx->strm_.next_out = out;
     ctx->flush_ = flush;
+
+    // set this so that later on, I can easily tell how much was written.
+    ctx->chunk_size_ = out_len;
 
     // build up the work request
     uv_work_t* work_req = new uv_work_t();
@@ -142,16 +154,23 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
     WorkReqWrap *req_wrap = (WorkReqWrap *)work_req->data;
     ZCtx<mode> *ctx = (ZCtx<mode> *)req_wrap->data_;
 
-    ctx->strm_.avail_out = ctx->chunk_size_;
-    ctx->strm_.next_out = ctx->out_;
-
     // If the avail_out is left at 0, then it means that it ran out
     // of room.  If there was avail_out left over, then it means
     // that all of the input was consumed.
-    if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
-      ctx->err_ = deflate(&(ctx->strm_), ctx->flush_);
-    } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
-      ctx->err_ = inflate(&(ctx->strm_), ctx->flush_);
+    switch (mode) {
+      case DEFLATE:
+      case GZIP:
+      case DEFLATERAW:
+        ctx->err_ = deflate(&(ctx->strm_), ctx->flush_);
+        break;
+      case UNZIP:
+      case INFLATE:
+      case GUNZIP:
+      case INFLATERAW:
+        ctx->err_ = inflate(&(ctx->strm_), ctx->flush_);
+        break;
+      default:
+        assert(0 && "wtf?");
     }
 
     assert(ctx->err_ != Z_STREAM_ERROR);
@@ -166,37 +185,16 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
   After(uv_work_t* work_req) {
     WorkReqWrap *req_wrap = (WorkReqWrap *)work_req->data;
     ZCtx<mode> *ctx = (ZCtx<mode> *)req_wrap->data_;
-
-    int have = ctx->chunk_size_ - ctx->strm_.avail_out;
-
-    if (have > 0) {
-      // got some output
-      Buffer* flated = Buffer::New((char *)(ctx->out_), have);
-      if (ctx->handle_->Has(ondata_sym)) {
-        Handle<Value> od = ctx->handle_->Get(ondata_sym);
-        assert(od->IsFunction());
-        Handle<Function> ondata = Handle<Function>::Cast(od);
-        Handle<Value> odargv[1] = { flated->handle_ };
-        ondata->Call(ctx->handle_, 1, odargv);
-      }
-    }
-
-    // if there's no avail_out, then it means that it wasn't able to
-    // fully consume the input.  Reschedule another call to Process.
-    if (ctx->strm_.avail_out == 0) {
-      uv_queue_work(uv_default_loop(),
-                    work_req,
-                    ZCtx<mode>::Process,
-                    ZCtx<mode>::After);
-      return;
-    }
+    Local<Integer> avail_out = Integer::New(ctx->strm_.avail_out);
+    Local<Integer> avail_in = Integer::New(ctx->strm_.avail_in);
 
     // call the write() cb
     assert(req_wrap->object_->Get(callback_sym)->IsFunction() &&
            "Invalid callback");
     Local<Function> callback =
       Local<Function>::Cast(req_wrap->object_->Get(callback_sym));
-    callback->Call(ctx->handle_, 0, NULL);
+    Local<Value> args[2] = { avail_in, avail_out };
+    callback->Call(ctx->handle_, 2, args);
 
     // delete the ReqWrap
     delete req_wrap;
@@ -215,48 +213,41 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
   Init(const Arguments& args) {
     HandleScope scope;
 
-    assert(args.Length() == 5 &&
-           "init(chunkSize, level, windowBits, memLevel, strategy)");
+    assert(args.Length() == 4 &&
+           "init(level, windowBits, memLevel, strategy)");
 
     ZCtx<mode> *ctx = ObjectWrap::Unwrap< ZCtx<mode> >(args.This());
 
-    int chunk_size = args[0]->Uint32Value();
-
-    int windowBits = args[1]->Uint32Value();
+    int windowBits = args[0]->Uint32Value();
     assert((windowBits >= 8 && windowBits <= 15) && "invalid windowBits");
 
-    int level = args[2]->Uint32Value();
+    int level = args[1]->Uint32Value();
     assert((level >= -1 && level <= 9) && "invalid compression level");
 
-    int memLevel = args[3]->Uint32Value();
+    int memLevel = args[2]->Uint32Value();
     assert((memLevel >= 1 && memLevel <= 9) && "invalid memlevel");
 
-    int strategy = args[4]->Uint32Value();
+    int strategy = args[3]->Uint32Value();
     assert((strategy == Z_FILTERED ||
             strategy == Z_HUFFMAN_ONLY ||
             strategy == Z_RLE ||
             strategy == Z_FIXED ||
             strategy == Z_DEFAULT_STRATEGY) && "invalid strategy");
 
-    Init(ctx, chunk_size, level, windowBits, memLevel, strategy);
+    Init(ctx, level, windowBits, memLevel, strategy);
     return Undefined();
   }
 
   static void
   Init (ZCtx *ctx,
-        int chunk_size,
         int level,
         int windowBits,
         int memLevel,
         int strategy) {
-    ctx->chunk_size_ = chunk_size;
     ctx->level_ = level;
     ctx->windowBits_ = windowBits;
     ctx->memLevel_ = memLevel;
     ctx->strategy_ = strategy;
-
-    ctx->out_ = (Bytef *)malloc(ctx->chunk_size_);
-    assert(ctx->out_ && "Couldn't malloc output buffer");
 
     ctx->strm_.zalloc = Z_NULL;
     ctx->strm_.zfree = Z_NULL;
@@ -277,15 +268,25 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
     }
 
     int err;
-    if (mode == DEFLATE || mode == GZIP || mode == DEFLATERAW) {
-      err = deflateInit2(&(ctx->strm_),
-                         ctx->level_,
-                         Z_DEFLATED,
-                         ctx->windowBits_,
-                         ctx->memLevel_,
-                         ctx->strategy_);
-    } else if (mode == INFLATE || mode == GUNZIP || mode == INFLATERAW) {
-      err = inflateInit2(&(ctx->strm_), ctx->windowBits_);
+    switch (mode) {
+      case DEFLATE:
+      case GZIP:
+      case DEFLATERAW:
+        err = deflateInit2(&(ctx->strm_),
+                           ctx->level_,
+                           Z_DEFLATED,
+                           ctx->windowBits_,
+                           ctx->memLevel_,
+                           ctx->strategy_);
+        break;
+      case INFLATE:
+      case GUNZIP:
+      case INFLATERAW:
+      case UNZIP:
+        err = inflateInit2(&(ctx->strm_), ctx->windowBits_);
+        break;
+      default:
+        assert(0 && "wtf?");
     }
 
     ctx->init_done_ = true;
@@ -305,7 +306,6 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
 
   int flush_;
 
-  Bytef *out_;
   int chunk_size_;
 };
 
