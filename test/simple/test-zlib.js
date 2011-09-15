@@ -47,12 +47,14 @@ var strategy = [0, 1, 2, 3, 4];
 
 // it's nice in theory to test every combination, but it
 // takes WAY too long.  Maybe a pummel test could do this?
-trickle = [1024];
-chunkSize = [1024 * 16];
-level = [6];
-memLevel = [8];
-windowBits = [15];
-strategy = [0];
+if (!process.env.PUMMEL) {
+  trickle = [1024];
+  chunkSize = [1024 * 16];
+  level = [6];
+  memLevel = [8];
+  windowBits = [15];
+  strategy = [0];
+}
 
 var fs = require('fs');
 

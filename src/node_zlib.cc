@@ -20,19 +20,17 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+#include <v8.h>
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <zlib.h>
+
 #include "node.h"
 #include "node_buffer.h"
 #include "req_wrap.h"
 
-#include <v8.h>
-
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-
-#include <sys/types.h>
-#include <unistd.h>
-#include <zlib.h>
 
 
 #define DEFAULT_CHUNK (1024 * 16)
@@ -69,7 +67,6 @@ void InitZlib(v8::Handle<v8::Object> target);
  * Deflate/Inflate
  */
 template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
-
  public:
 
   ZCtx() : ObjectWrap() {
@@ -92,12 +89,14 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
     assert(ctx->init_done_ && "write before init");
 
     unsigned int flush = args[0]->Uint32Value();
-    Bytef *in, *out;
+    Bytef *in;
+    Bytef *out;
     size_t in_off, in_len, out_off, out_len;
 
     if (args[1]->IsNull()) {
       // just a flush
-      in = (Bytef *)"\0";
+      Bytef nada[1] = { 0 };
+      in = nada;
       in_len = 0;
       in_off = 0;
     } else {
@@ -108,7 +107,7 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
       in_len = (size_t)args[3]->Uint32Value();
 
       assert(in_off + in_len <= Buffer::Length(in_buf));
-      in = (Bytef *)(Buffer::Data(in_buf) + in_off);
+      in = reinterpret_cast<Bytef *>(Buffer::Data(in_buf) + in_off);
     }
 
     assert(Buffer::HasInstance(args[4]));
@@ -116,13 +115,13 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
     out_off = (size_t)args[5]->Uint32Value();
     out_len = (size_t)args[6]->Uint32Value();
     assert(out_off + out_len <= Buffer::Length(out_buf));
-    out = (Bytef *)(Buffer::Data(out_buf) + out_off);
+    out = reinterpret_cast<Bytef *>(Buffer::Data(out_buf) + out_off);
 
     WorkReqWrap *req_wrap = new WorkReqWrap();
 
     req_wrap->data_ = ctx;
     ctx->strm_.avail_in = in_len;
-    ctx->strm_.next_in = in;
+    ctx->strm_.next_in = &(*in);
     ctx->strm_.avail_out = out_len;
     ctx->strm_.next_out = out;
     ctx->flush_ = flush;
@@ -151,7 +150,7 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
   // been consumed.
   static void
   Process(uv_work_t* work_req) {
-    WorkReqWrap *req_wrap = (WorkReqWrap *)work_req->data;
+    WorkReqWrap *req_wrap = reinterpret_cast<WorkReqWrap *>(work_req->data);
     ZCtx<mode> *ctx = (ZCtx<mode> *)req_wrap->data_;
 
     // If the avail_out is left at 0, then it means that it ran out
@@ -183,7 +182,7 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
   // v8 land!
   static void
   After(uv_work_t* work_req) {
-    WorkReqWrap *req_wrap = (WorkReqWrap *)work_req->data;
+    WorkReqWrap *req_wrap = reinterpret_cast<WorkReqWrap *>(work_req->data);
     ZCtx<mode> *ctx = (ZCtx<mode> *)req_wrap->data_;
     Local<Integer> avail_out = Integer::New(ctx->strm_.avail_out);
     Local<Integer> avail_in = Integer::New(ctx->strm_.avail_in);
@@ -239,11 +238,11 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
   }
 
   static void
-  Init (ZCtx *ctx,
-        int level,
-        int windowBits,
-        int memLevel,
-        int strategy) {
+  Init(ZCtx *ctx,
+       int level,
+       int windowBits,
+       int memLevel,
+       int strategy) {
     ctx->level_ = level;
     ctx->windowBits_ = windowBits;
     ctx->memLevel_ = memLevel;
