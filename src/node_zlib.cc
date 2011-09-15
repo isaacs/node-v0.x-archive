@@ -33,9 +33,6 @@
 
 
 
-#define DEFAULT_CHUNK (1024 * 16)
-
-
 namespace node {
 using namespace v8;
 
@@ -59,7 +56,6 @@ template <node_zlib_mode mode> class ZCtx;
 
 
 void InitZlib(v8::Handle<v8::Object> target);
-
 
 
 /**
