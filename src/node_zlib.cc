@@ -157,23 +157,23 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
     // If the avail_out is left at 0, then it means that it ran out
     // of room.  If there was avail_out left over, then it means
     // that all of the input was consumed.
+    int err;
     switch (mode) {
       case DEFLATE:
       case GZIP:
       case DEFLATERAW:
-        ctx->err_ = deflate(&(ctx->strm_), ctx->flush_);
+        err = deflate(&(ctx->strm_), ctx->flush_);
         break;
       case UNZIP:
       case INFLATE:
       case GUNZIP:
       case INFLATERAW:
-        ctx->err_ = inflate(&(ctx->strm_), ctx->flush_);
+        err = inflate(&(ctx->strm_), ctx->flush_);
         break;
       default:
         assert(0 && "wtf?");
     }
-
-    assert(ctx->err_ != Z_STREAM_ERROR);
+    assert(err != Z_STREAM_ERROR);
 
     // now After will emit the output, and
     // either schedule another call to Process,
@@ -297,7 +297,6 @@ template <node_zlib_mode mode> class ZCtx : public ObjectWrap {
 
   bool init_done_;
 
-  int err_;
   z_stream strm_;
   int level_;
   int windowBits_;
