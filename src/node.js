@@ -504,6 +504,8 @@
   }
 
   NativeModule.exists = function(id) {
+    // 'native_module' itself is built up here, so it must be
+    // explicitly checked for, since it has no entry in _source.
     return id === 'native_module' ||
            NativeModule._source.hasOwnProperty(id);
   }
