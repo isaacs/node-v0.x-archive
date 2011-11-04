@@ -548,7 +548,8 @@
   }
 
   NativeModule.exists = function(id) {
-    return NativeModule._source.hasOwnProperty(id);
+    return id === 'native_module' ||
+           NativeModule._source.hasOwnProperty(id);
   }
 
   NativeModule.getSource = function(id) {
