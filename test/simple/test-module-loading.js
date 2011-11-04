@@ -206,6 +206,17 @@ assert.deepEqual(json, {
 });
 
 
+// #2008 Loading NativeModule
+// It's somewhat internal, but should still behave properly,
+// since it is exposted.
+common.debug('testing native_module usage to load all natives');
+var NativeModule = require('native_module');
+assert.equal(NativeModule, NativeModule.require('native_module'));
+assert.equal(typeof NativeModule._source, 'object');
+Object.keys(NativeModule._source).forEach(function (mod) {
+  assert.equal(require(mod), NativeModule.require(mod));
+});
+
 process.on('exit', function() {
   assert.ok(common.indirectInstanceOf(a.A, Function));
   assert.equal('A done', a.A());
