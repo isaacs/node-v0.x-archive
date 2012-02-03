@@ -1,5 +1,4 @@
-## Table of Contents
-
+* [About these Docs](documentation.html)
 * [Synopsis](synopsis.html)
 * [Globals](globals.html)
 * [STDIO](stdio.html)
@@ -26,7 +25,7 @@
 * [Readline](readline.html)
 * [REPL](repl.html)
 * [VM](vm.html)
-* [Child Processes](child_processes.html)
+* [Child Processes](child_process.html)
 * [Assertion Testing](assert.html)
 * [TTY](tty.html)
 * [ZLIB](zlib.html)
@@ -35,4 +34,3 @@
 * [Cluster](cluster.html)
 * Appendixes
   * [Appendix 1: Recommended Third-party Modules](appendix_1.html)
-  * [Appendix 2: Deprecated API's](appendix_2.html)
