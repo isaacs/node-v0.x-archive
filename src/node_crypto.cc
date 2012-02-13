@@ -530,6 +530,9 @@ Handle<Value> SecureContext::SetOptions(const Arguments& args) {
 
   unsigned int opts = args[0]->Uint32Value();
 
+  // SSL_CTX_set_options ORs the options onto the existing options flag
+  // so clear it first
+  SSL_CTX_clear_options(sc->ctx_, (unsigned) -1);
   SSL_CTX_set_options(sc->ctx_, opts);
 
   return True();
