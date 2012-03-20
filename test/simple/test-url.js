@@ -33,6 +33,7 @@ var parseTests = {
     'pathname': '//some_path',
     'path': '//some_path'
   },
+
   'HTTP://www.example.com/' : {
     'href': 'http://www.example.com/',
     'protocol': 'http:',
@@ -42,6 +43,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://www.ExAmPlE.com/' : {
     'href': 'http://www.example.com/',
     'protocol': 'http:',
@@ -51,6 +53,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://user:pw@www.ExAmPlE.com/' : {
     'href': 'http://user:pw@www.example.com/',
     'protocol': 'http:',
@@ -61,6 +64,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://USER:PW@www.ExAmPlE.com/' : {
     'href': 'http://USER:PW@www.example.com/',
     'protocol': 'http:',
@@ -71,6 +75,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://user@www.example.com/' : {
     'href': 'http://user@www.example.com/',
     'protocol': 'http:',
@@ -81,6 +86,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://user%3Apw@www.example.com/' : {
     'href': 'http://user:pw@www.example.com/',
     'protocol': 'http:',
@@ -91,6 +97,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://x.com/path?that\'s#all, folks' : {
     'href': 'http://x.com/path?that%27s#all,',
     'protocol': 'http:',
@@ -103,6 +110,7 @@ var parseTests = {
     'hash': '#all,',
     'path': '/path?that%27s'
   },
+
   'HTTP://X.COM/Y' : {
     'href': 'http://x.com/Y',
     'protocol': 'http:',
@@ -112,6 +120,7 @@ var parseTests = {
     'pathname': '/Y',
     'path': '/Y'
   },
+
   // an unexpected invalid char in the hostname.
   'HtTp://x.y.cOm*a/b/c?d=e#f g<h>i' : {
     'href': 'http://x.y.com/*a/b/c?d=e#f',
@@ -125,6 +134,7 @@ var parseTests = {
     'hash': '#f',
     'path': '/*a/b/c?d=e'
   },
+
   // make sure that we don't accidentally lcast the path parts.
   'HtTp://x.y.cOm*A/b/c?d=e#f g<h>i' : {
     'href': 'http://x.y.com/*A/b/c?d=e#f',
@@ -138,6 +148,7 @@ var parseTests = {
     'hash': '#f',
     'path': '/*A/b/c?d=e'
   },
+
   'http://x...y...#p': {
     'href': 'http://x...y.../#p',
     'protocol': 'http:',
@@ -148,15 +159,17 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://x/p/"quoted"': {
-    'href': 'http://x/p/',
+    'href': 'http://x/p/%22quoted%22',
     'protocol': 'http:',
     'slashes': true,
     'host': 'x',
     'hostname': 'x',
-    'pathname': '/p/',
-    'path': '/p/'
+    'pathname': '/p/%22quoted%22',
+    'path': '/p/%22quoted%22'
   },
+
   '<http://goo.corn/bread> Is a URL!': {
     'href': 'http://goo.corn/bread',
     'protocol': 'http:',
@@ -166,6 +179,7 @@ var parseTests = {
     'pathname': '/bread',
     'path': '/bread'
   },
+
   'http://www.narwhaljs.org/blog/categories?id=news' : {
     'href': 'http://www.narwhaljs.org/blog/categories?id=news',
     'protocol': 'http:',
@@ -177,6 +191,7 @@ var parseTests = {
     'pathname': '/blog/categories',
     'path': '/blog/categories?id=news'
   },
+
   'http://mt0.google.com/vt/lyrs=m@114&hl=en&src=api&x=2&y=2&z=3&s=' : {
     'href': 'http://mt0.google.com/vt/lyrs=m@114&hl=en&src=api&x=2&y=2&z=3&s=',
     'protocol': 'http:',
@@ -186,6 +201,7 @@ var parseTests = {
     'pathname': '/vt/lyrs=m@114&hl=en&src=api&x=2&y=2&z=3&s=',
     'path': '/vt/lyrs=m@114&hl=en&src=api&x=2&y=2&z=3&s='
   },
+
   'http://mt0.google.com/vt/lyrs=m@114???&hl=en&src=api&x=2&y=2&z=3&s=' : {
     'href': 'http://mt0.google.com/vt/lyrs=m@114???&hl=en&src=api' +
         '&x=2&y=2&z=3&s=',
@@ -198,6 +214,7 @@ var parseTests = {
     'pathname': '/vt/lyrs=m@114',
     'path': '/vt/lyrs=m@114???&hl=en&src=api&x=2&y=2&z=3&s='
   },
+
   'http://user:pass@mt0.google.com/vt/lyrs=m@114???&hl=en&src=api&x=2&y=2&z=3&s=':
       {
         'href': 'http://user:pass@mt0.google.com/vt/lyrs=m@114???' +
@@ -212,6 +229,7 @@ var parseTests = {
         'pathname': '/vt/lyrs=m@114',
         'path': '/vt/lyrs=m@114???&hl=en&src=api&x=2&y=2&z=3&s='
       },
+
   'file:///etc/passwd' : {
     'href': 'file:///etc/passwd',
     'slashes': true,
@@ -221,6 +239,7 @@ var parseTests = {
     'host': '',
     'path': '/etc/passwd'
   },
+
   'file://localhost/etc/passwd' : {
     'href': 'file://localhost/etc/passwd',
     'protocol': 'file:',
@@ -230,6 +249,7 @@ var parseTests = {
     'host': 'localhost',
     'path': '/etc/passwd'
   },
+
   'file://foo/etc/passwd' : {
     'href': 'file://foo/etc/passwd',
     'protocol': 'file:',
@@ -239,6 +259,7 @@ var parseTests = {
     'host': 'foo',
     'path': '/etc/passwd'
   },
+
   'file:///etc/node/' : {
     'href': 'file:///etc/node/',
     'slashes': true,
@@ -248,6 +269,7 @@ var parseTests = {
     'host': '',
     'path': '/etc/node/'
   },
+
   'file://localhost/etc/node/' : {
     'href': 'file://localhost/etc/node/',
     'protocol': 'file:',
@@ -257,6 +279,7 @@ var parseTests = {
     'host': 'localhost',
     'path': '/etc/node/'
   },
+
   'file://foo/etc/node/' : {
     'href': 'file://foo/etc/node/',
     'protocol': 'file:',
@@ -266,12 +289,14 @@ var parseTests = {
     'host': 'foo',
     'path': '/etc/node/'
   },
+
   'http:/baz/../foo/bar' : {
     'href': 'http:/baz/../foo/bar',
     'protocol': 'http:',
     'pathname': '/baz/../foo/bar',
     'path': '/baz/../foo/bar'
   },
+
   'http://user:pass@example.com:8000/foo/bar?baz=quux#frag' : {
     'href': 'http://user:pass@example.com:8000/foo/bar?baz=quux#frag',
     'protocol': 'http:',
@@ -286,6 +311,7 @@ var parseTests = {
     'pathname': '/foo/bar',
     'path': '/foo/bar?baz=quux'
   },
+
   '//user:pass@example.com:8000/foo/bar?baz=quux#frag' : {
     'href': '//user:pass@example.com:8000/foo/bar?baz=quux#frag',
     'slashes': true,
@@ -299,6 +325,7 @@ var parseTests = {
     'pathname': '/foo/bar',
     'path': '/foo/bar?baz=quux'
   },
+
   '/foo/bar?baz=quux#frag' : {
     'href': '/foo/bar?baz=quux#frag',
     'hash': '#frag',
@@ -307,6 +334,7 @@ var parseTests = {
     'pathname': '/foo/bar',
     'path': '/foo/bar?baz=quux'
   },
+
   'http:/foo/bar?baz=quux#frag' : {
     'href': 'http:/foo/bar?baz=quux#frag',
     'protocol': 'http:',
@@ -316,6 +344,7 @@ var parseTests = {
     'pathname': '/foo/bar',
     'path': '/foo/bar?baz=quux'
   },
+
   'mailto:foo@bar.com?subject=hello' : {
     'href': 'mailto:foo@bar.com?subject=hello',
     'protocol': 'mailto:',
@@ -326,12 +355,14 @@ var parseTests = {
     'query': 'subject=hello',
     'path': '?subject=hello'
   },
+
   'javascript:alert(\'hello\');' : {
     'href': 'javascript:alert(\'hello\');',
     'protocol': 'javascript:',
     'pathname': 'alert(\'hello\');',
     'path': 'alert(\'hello\');'
   },
+
   'xmpp:isaacschlueter@jabber.org' : {
     'href': 'xmpp:isaacschlueter@jabber.org',
     'protocol': 'xmpp:',
@@ -339,6 +370,7 @@ var parseTests = {
     'auth': 'isaacschlueter',
     'hostname': 'jabber.org'
   },
+
   'http://atpass:foo%40bar@127.0.0.1:8080/path?search=foo#bar' : {
     'href' : 'http://atpass:foo%40bar@127.0.0.1:8080/path?search=foo#bar',
     'protocol' : 'http:',
@@ -353,6 +385,7 @@ var parseTests = {
     'hash' : '#bar',
     'path': '/path?search=foo'
   },
+
   'svn+ssh://foo/bar': {
     'href': 'svn+ssh://foo/bar',
     'host': 'foo',
@@ -362,6 +395,7 @@ var parseTests = {
     'path': '/bar',
     'slashes': true
   },
+
   'dash-test://foo/bar': {
     'href': 'dash-test://foo/bar',
     'host': 'foo',
@@ -371,6 +405,7 @@ var parseTests = {
     'path': '/bar',
     'slashes': true
   },
+
   'dash-test:foo/bar': {
     'href': 'dash-test:foo/bar',
     'host': 'foo',
@@ -379,6 +414,7 @@ var parseTests = {
     'pathname': '/bar',
     'path': '/bar'
   },
+
   'dot.test://foo/bar': {
     'href': 'dot.test://foo/bar',
     'host': 'foo',
@@ -388,6 +424,7 @@ var parseTests = {
     'path': '/bar',
     'slashes': true
   },
+
   'dot.test:foo/bar': {
     'href': 'dot.test:foo/bar',
     'host': 'foo',
@@ -396,6 +433,7 @@ var parseTests = {
     'pathname': '/bar',
     'path': '/bar'
   },
+
   // IDNA tests
   'http://www.日本語.com/' : {
     'href': 'http://www.xn--wgv71a119e.com/',
@@ -406,6 +444,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://example.Bücher.com/' : {
     'href': 'http://example.xn--bcher-kva.com/',
     'protocol': 'http:',
@@ -415,6 +454,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://www.Äffchen.com/' : {
     'href': 'http://www.xn--ffchen-9ta.com/',
     'protocol': 'http:',
@@ -424,6 +464,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://www.Äffchen.cOm*A/b/c?d=e#f g<h>i' : {
     'href': 'http://www.xn--ffchen-9ta.com/*A/b/c?d=e#f',
     'protocol': 'http:',
@@ -436,6 +477,7 @@ var parseTests = {
     'hash': '#f',
     'path': '/*A/b/c?d=e'
   },
+
   'http://SÉLIER.COM/' : {
     'href': 'http://xn--slier-bsa.com/',
     'protocol': 'http:',
@@ -445,6 +487,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://ليهمابتكلموشعربي؟.ي؟/' : {
     'href': 'http://xn--egbpdaj6bu4bxfgehfvwxn.xn--egb9f/',
     'protocol': 'http:',
@@ -454,6 +497,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://➡.ws/➡' : {
     'href': 'http://xn--hgi.ws/➡',
     'protocol': 'http:',
@@ -463,6 +507,7 @@ var parseTests = {
     'pathname': '/➡',
     'path': '/➡'
   },
+
   'http://bucket_name.s3.amazonaws.com/image.jpg': {
     protocol: 'http:',
     'slashes': true,
@@ -473,6 +518,7 @@ var parseTests = {
     href: 'http://bucket_name.s3.amazonaws.com/image.jpg',
     'path': '/image.jpg'
   },
+
   'git+http://github.com/joyent/node.git': {
     protocol: 'git+http:',
     slashes: true,
@@ -482,6 +528,7 @@ var parseTests = {
     path: '/joyent/node.git',
     href: 'git+http://github.com/joyent/node.git'
   },
+
   //if local1@domain1 is uses as a relative URL it may
   //be parse into auth@hostname, but here there is no
   //way to make it work in url.parse, I add the test to be explicit
@@ -490,6 +537,7 @@ var parseTests = {
     'path': 'local1@domain1',
     'href': 'local1@domain1'
   },
+
   //While this may seem counter-intuitive, a browser will parse
   //<a href='www.google.com'> as a path.
   'www.example.com' : {
@@ -497,12 +545,14 @@ var parseTests = {
     'pathname': 'www.example.com',
     'path': 'www.example.com'
   },
+
   // ipv6 support
   '[fe80::1]': {
     'href': '[fe80::1]',
     'pathname': '[fe80::1]',
     'path': '[fe80::1]'
   },
+
   'coap://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]': {
     'protocol': 'coap:',
     'slashes': true,
@@ -512,6 +562,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'coap://[1080:0:0:0:8:800:200C:417A]:61616/': {
     'protocol': 'coap:',
     'slashes': true,
@@ -522,6 +573,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://user:password@[3ffe:2a00:100:7031::1]:8080': {
     'protocol': 'http:',
     'slashes': true,
@@ -533,6 +585,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'coap://u:p@[::192.9.5.5]:61616/.well-known/r?n=Temperature': {
     'protocol': 'coap:',
     'slashes': true,
@@ -546,6 +599,7 @@ var parseTests = {
     'pathname': '/.well-known/r',
     'path': '/.well-known/r?n=Temperature'
   },
+
   // empty port
   'http://example.com:': {
     'protocol': 'http:',
@@ -556,6 +610,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://example.com:/a/b.html': {
     'protocol': 'http:',
     'slashes': true,
@@ -565,6 +620,7 @@ var parseTests = {
     'pathname': '/a/b.html',
     'path': '/a/b.html'
   },
+
   'http://example.com:?a=b': {
     'protocol': 'http:',
     'slashes': true,
@@ -576,6 +632,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/?a=b'
   },
+
   'http://example.com:#abc': {
     'protocol': 'http:',
     'slashes': true,
@@ -586,6 +643,7 @@ var parseTests = {
     'pathname': '/',
     'path': '/'
   },
+
   'http://[fe80::1]:/a/b?a=b#abc': {
     'protocol': 'http:',
     'slashes': true,
@@ -598,6 +656,7 @@ var parseTests = {
     'pathname': '/a/b',
     'path': '/a/b?a=b'
   }
+
 };
 
 for (var u in parseTests) {
@@ -705,10 +764,10 @@ var formatTests = {
     'pathname': '/'
   },
   'http://google.com" onload="alert(42)/' : {
-    'href': 'http://google.com/',
+    'href': 'http://google.com/%22',
     'protocol': 'http:',
     'host': 'google.com',
-    'pathname': '/'
+    'pathname': '/%22'
   },
   'http://a.com/a/b/c?s#h' : {
     'href': 'http://a.com/a/b/c?s#h',
