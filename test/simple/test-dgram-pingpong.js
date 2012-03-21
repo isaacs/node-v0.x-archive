@@ -27,27 +27,39 @@ var assert = require('assert');
 var Buffer = require('buffer').Buffer;
 var dgram = require('dgram');
 
-var tests_run = 0;
+var testsRun = 0;
+var expectTests = 0;
+var actualPings = 0;
+var expectPings = 0;
+
+var N = 50;
 
 function pingPongTest(port, host) {
+  expectTests++;
+  expectPings += N;
   var callbacks = 0;
-  var N = 500;
   var count = 0;
-  var sent_final_ping = false;
+  var sentFinalPing = false;
+
+  // Sometimes it times out.
+  var timer = setTimeout(function() {
+    console.error('Timeout!');
+    server.close();
+    process.exit(1);
+  }, 5000);
+
 
   var server = dgram.createSocket('udp4', function(msg, rinfo) {
-    console.log('server got: ' + msg +
-                ' from ' + rinfo.address + ':' + rinfo.port);
-
-    if (/PING/.exec(msg)) {
-      var buf = new Buffer(4);
-      buf.write('PONG');
-      server.send(buf, 0, buf.length,
-                  rinfo.port, rinfo.address,
-                  function(err, sent) {
-                    callbacks++;
-                  });
-    }
+    console.log('SERVER recv', rinfo.port, rinfo.address, msg.toString());
+    assert.equal('PING', msg.toString('ascii'));
+    actualPings += 1;
+    var buf = new Buffer('PONG');
+    console.log('SERVER send', rinfo.port, rinfo.address, buf.toString());
+    server.send(buf, 0, buf.length,
+                rinfo.port, rinfo.address,
+                function(err, sent) {
+                  callbacks++;
+                });
   });
 
   server.on('error', function(e) {
@@ -61,17 +73,24 @@ function pingPongTest(port, host) {
         client = dgram.createSocket('udp4');
 
     client.on('message', function(msg, rinfo) {
-      console.log('client got: ' + msg +
-                  ' from ' + rinfo.address + ':' + rinfo.port);
+      console.log('CLIENT recv', rinfo.port, rinfo.address, msg.toString());
       assert.equal('PONG', msg.toString('ascii'));
 
-      count += 1;
-
       if (count < N) {
-        client.send(buf, 0, buf.length, port, 'localhost');
+        count += 1;
+        console.log('CLIENT send', port, 'localhost', buf.toString(), count);
+        client.send(buf, 0, buf.length, port, 'localhost', function(err, b) {
+          if (err) {
+            throw err;
+          }
+
+          console.log('  CLIENT sent %d bytes', b);
+        });
+
       } else {
-        sent_final_ping = true;
+        sentFinalPing = true;
         client.send(buf, 0, buf.length, port, 'localhost', function() {
+          console.log('Closing client', port);
           client.close();
         });
       }
@@ -80,16 +99,17 @@ function pingPongTest(port, host) {
     client.on('close', function() {
       console.log('client has closed, closing server');
       assert.equal(N, count);
-      tests_run += 1;
+      testsRun += 1;
       server.close();
-      assert.equal(N - 1, callbacks);
+      assert.equal(N, callbacks);
+      clearTimeout(timer);
     });
 
     client.on('error', function(e) {
       throw e;
     });
 
-    console.log('Client sending to ' + port + ', localhost ' + buf);
+    console.log('Client send to ' + port + ', localhost ' + buf);
     client.send(buf, 0, buf.length, port, 'localhost', function(err, bytes) {
       if (err) {
         throw err;
@@ -108,6 +128,10 @@ pingPongTest(20988);
 //pingPongTest('/tmp/pingpong.sock');
 
 process.on('exit', function() {
-  assert.equal(3, tests_run);
+  console.error('Expect Pings: %d', expectPings);
+  console.error('Actual Pings: %d', actualPings);
+  console.error('Percentage:', Math.round(100 * actualPings/expectPings));
+
+  assert.equal(expectTests, testsRun);
   console.log('done');
 });
