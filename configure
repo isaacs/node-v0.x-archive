@@ -108,7 +108,7 @@ parser.add_option("--shared-zlib-libname",
 parser.add_option("--with-dtrace",
     action="store_true",
     dest="with_dtrace",
-    help="Build with DTrace (experimental)")
+    help="Build with DTrace")
 
 # CHECKME does this still work with recent releases of V8?
 parser.add_option("--gdb",
