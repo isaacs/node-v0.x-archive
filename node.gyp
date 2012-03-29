@@ -259,84 +259,106 @@
     {
       'target_name': 'node_dtrace_o',
       'type': 'static_library',
-      'dependencies': [ 'node_dtrace_provider_h' ],
-      'include_dirs': [
-        'src',
-        '<(SHARED_INTERMEDIATE_DIR)'
-      ],
-      'defines': [ 'HAVE_DTRACE=1' ],
-      'sources': [
-        '<(SHARED_INTERMEDIATE_DIR)/node_provider.h',
-        'src/node_dtrace.cc'
-        'src/node_dtrace.h',
-      ],
+      'conditions': [
+        [ 'node_use_dtrace=="true"', {
+          'dependencies': [ 'node_dtrace_provider_h' ],
+          'include_dirs': [
+            'src',
+            '<(SHARED_INTERMEDIATE_DIR)'
+          ],
+          'defines': [ 'HAVE_DTRACE=1' ],
+          'sources': [
+            '<(SHARED_INTERMEDIATE_DIR)/node_provider.h',
+            'src/node_dtrace.cc'
+            'src/node_dtrace.h',
+          ],
+        } ]
+      ]
     },
     {
       'target_name': 'node_dtrace_provider_h',
       'type': 'none',
-      'actions': [
-        {
-          'action_name': 'node_dtrace_provider_h',
-          'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/node_provider.h' ],
-          'inputs': [ 'src/node_provider.d' ],
-          'action': [ 'dtrace', '-h', '-xnolibs', '-s', '<@(_inputs)',
-            '-o', '<@(_outputs)' ]
-        }
+      'conditions': [
+        [ 'node_use_dtrace=="true"', {
+          'actions': [
+            {
+              'action_name': 'node_dtrace_provider_h',
+              'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/node_provider.h' ],
+              'inputs': [ 'src/node_provider.d' ],
+              'action': [ 'dtrace', '-h', '-xnolibs', '-s', '<@(_inputs)',
+                '-o', '<@(_outputs)' ]
+            }
+          ]
+        } ]
       ]
     },
     {
       'target_name': 'node_dtrace_provider_o',
       'type': 'none',
-      'dependencies': [ 'node_dtrace_provider_h', 'node_dtrace_o' ],
-      'direct_dependent_settings': {
-        'libraries': [ '<(SHARED_INTERMEDIATE_DIR)/node_provider.o' ]
-      },
-      'actions': [
-        {
-          'action_name': 'node_dtrace_provider_o',
-          'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/node_provider.o' ],
-          'inputs': [
-            'src/node_provider.d',
-            '<(PRODUCT_DIR)/obj.target/node/src/node_dtrace.o'
-          ],
-          'action': [ 'dtrace', '-G', '-xnolibs', '-s', '<@(_inputs)',
-            '-o', '<@(_outputs)' ]
-        }
+      'conditions': [
+        [ 'node_use_dtrace=="true"', {
+          'dependencies': [ 'node_dtrace_provider_h', 'node_dtrace_o' ],
+          'direct_dependent_settings': {
+            'libraries': [ '<(SHARED_INTERMEDIATE_DIR)/node_provider.o' ]
+          },
+          'actions': [
+            {
+              'action_name': 'node_dtrace_provider_o',
+              'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/node_provider.o' ],
+              'inputs': [
+                'src/node_provider.d',
+                '<(PRODUCT_DIR)/obj.target/node/src/node_dtrace.o'
+              ],
+              'action': [ 'dtrace', '-G', '-xnolibs', '-s', '<@(_inputs)',
+                '-o', '<@(_outputs)' ]
+            }
+          ]
+        } ]
       ]
     },
     {
       'target_name': 'v8constants',
       'type': 'none',
-      'actions': [
-        {
-          'action_name': 'v8constants',
-          'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/v8constants.h' ],
-          'inputs': [ '<(PRODUCT_DIR)/obj.target/deps/v8/tools/gyp/libv8_base.a' ],
-          'action': [
-            'tools/genv8constants.py',
-            '<@(_outputs)',
-            '<@(_inputs)'
+      'conditions': [
+        [ 'node_use_dtrace=="true"', {
+          'actions': [
+            {
+              'action_name': 'v8constants',
+              'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/v8constants.h' ],
+              'inputs': [
+                '<(PRODUCT_DIR)/obj.target/deps/v8/tools/gyp/libv8_base.a'
+              ],
+              'action': [
+                'tools/genv8constants.py',
+                '<@(_outputs)',
+                '<@(_inputs)'
+              ]
+            }
           ]
-        }
+        } ]
       ]
     },
     {
       'target_name': 'node_dtrace_ustack_o',
       'type': 'none',
-      'dependencies': [ 'v8constants' ],
-      'direct_dependent_settings': {
-        'libraries': [ '<(SHARED_INTERMEDIATE_DIR)/node_ustack.o' ]
-      },
-      'actions': [
-        {
-          'action_name': 'node_dtrace_ustack',
-          'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/node_ustack.o' ],
-          'inputs': [ 'src/v8ustack.d' ],
-          'action': [
-            'dtrace', '-32', '-I<(SHARED_INTERMEDIATE_DIR)', '-Isrc',
-            '-C', '-G', '-s', '<@(_inputs)', '-o', '<@(_outputs)',
+      'conditions': [
+        [ 'node_use_dtrace=="true"', {
+          'dependencies': [ 'v8constants' ],
+          'direct_dependent_settings': {
+            'libraries': [ '<(SHARED_INTERMEDIATE_DIR)/node_ustack.o' ]
+          },
+          'actions': [
+            {
+              'action_name': 'node_dtrace_ustack',
+              'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/node_ustack.o' ],
+              'inputs': [ 'src/v8ustack.d' ],
+              'action': [
+                'dtrace', '-32', '-I<(SHARED_INTERMEDIATE_DIR)', '-Isrc',
+                '-C', '-G', '-s', '<@(_inputs)', '-o', '<@(_outputs)',
+              ]
+            }
           ]
-        }
+        } ],
       ]
     }
   ] # end targets
