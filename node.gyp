@@ -137,9 +137,12 @@
 
         [ 'node_use_dtrace=="true"', {
           'defines': [ 'HAVE_DTRACE=1' ],
-          'dependencies': [
-            'node_dtrace_provider_o'
-          ],
+          'dependencies': [ 'node_dtrace_provider_o' ],
+          'conditions': [ [
+            'target_arch=="ia32"', {
+              'dependencies': [ 'node_dtrace_ustack_o' ]
+            }
+          ] ],
           'libraries': [
             # generated implicitly by dependency
             '<(PRODUCT_DIR)/obj.target/node/src/node_dtrace.o'
@@ -267,9 +270,6 @@
         'src/node_dtrace.cc'
         'src/node_dtrace.h',
       ],
-      #'direct_dependent_settings': {
-      #  'libraries': [ '<(PRODUCT_DIR)/obj.target/node/src/node_dtrace.o' ]
-      #}
     },
     {
       'target_name': 'node_dtrace_provider_h',
@@ -301,6 +301,41 @@
           ],
           'action': [ 'dtrace', '-G', '-xnolibs', '-s', '<@(_inputs)',
             '-o', '<@(_outputs)' ]
+        }
+      ]
+    },
+    {
+      'target_name': 'v8constants',
+      'type': 'none',
+      'actions': [
+        {
+          'action_name': 'v8constants',
+          'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/v8constants.h' ],
+          'inputs': [ '<(PRODUCT_DIR)/obj.target/deps/v8/tools/gyp/libv8_base.a' ],
+          'action': [
+            'tools/genv8constants.py',
+            '<@(_outputs)',
+            '<@(_inputs)'
+          ]
+        }
+      ]
+    },
+    {
+      'target_name': 'node_dtrace_ustack_o',
+      'type': 'none',
+      'dependencies': [ 'v8constants' ],
+      'direct_dependent_settings': {
+        'libraries': [ '<(SHARED_INTERMEDIATE_DIR)/node_ustack.o' ]
+      },
+      'actions': [
+        {
+          'action_name': 'node_dtrace_ustack',
+          'outputs': [ '<(SHARED_INTERMEDIATE_DIR)/node_ustack.o' ],
+          'inputs': [ 'src/v8ustack.d' ],
+          'action': [
+            'dtrace', '-32', '-I<(SHARED_INTERMEDIATE_DIR)', '-Isrc',
+            '-C', '-G', '-s', '<@(_inputs)', '-o', '<@(_outputs)',
+          ]
         }
       ]
     }
