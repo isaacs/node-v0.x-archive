@@ -283,8 +283,10 @@ public:
 
     Local<Value> argv[1] = { message_info };
 
-    Local<Value> head_response =
-        Local<Function>::Cast(cb)->Call(handle_, 1, argv);
+    Local<Value> head_response;
+    head_response = Local<Value>::New(MakeCallback(handle_,
+                                 Local<Function>::Cast(cb),
+                                 1, argv));
 
     if (head_response.IsEmpty()) {
       got_exception_ = true;
@@ -308,7 +310,10 @@ public:
       Integer::New(length)
     };
 
-    Local<Value> r = Local<Function>::Cast(cb)->Call(handle_, 3, argv);
+    Local<Value> r;
+    r = Local<Value>::New(MakeCallback(handle_,
+                     Local<Function>::Cast(cb),
+                     3, argv));
 
     if (r.IsEmpty()) {
       got_exception_ = true;
@@ -330,7 +335,10 @@ public:
     if (!cb->IsFunction())
       return 0;
 
-    Local<Value> r = Local<Function>::Cast(cb)->Call(handle_, 0, NULL);
+    Local<Value> r;
+    r = Local<Value>::New(MakeCallback(handle_,
+                     Local<Function>::Cast(cb),
+                     0, NULL));
 
     if (r.IsEmpty()) {
       got_exception_ = true;
@@ -519,7 +527,10 @@ private:
       url_.ToString()
     };
 
-    Local<Value> r = Local<Function>::Cast(cb)->Call(handle_, 2, argv);
+    Local<Value> r;
+    r = Local<Value>::New(MakeCallback(handle_,
+                     Local<Function>::Cast(cb),
+                     2, argv));
 
     if (r.IsEmpty())
       got_exception_ = true;
