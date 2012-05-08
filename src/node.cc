@@ -256,9 +256,7 @@ static void Spin(uv_idle_t* handle, int status) {
   Tick();
 }
 
-
-static Handle<Value> NeedTickCallback(const Arguments& args) {
-  HandleScope scope;
+static void StartTickSpinner() {
   need_tick_cb = true;
   // TODO: this tick_spinner shouldn't be necessary. An ev_prepare should be
   // sufficent, the problem is only in the case of the very last "tick" -
@@ -269,9 +267,12 @@ static Handle<Value> NeedTickCallback(const Arguments& args) {
     uv_idle_start(&tick_spinner, Spin);
     uv_ref(uv_default_loop());
   }
-  return Undefined();
 }
 
+static Handle<Value> NeedTickCallback(const Arguments& args) {
+  StartTickSpinner();
+  return Undefined();
+}
 
 static void PrepareTick(uv_prepare_t* handle, int status) {
   assert(handle == &prepare_tick_watcher);
