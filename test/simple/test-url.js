@@ -651,7 +651,19 @@ var parseTests = {
     'hash': '#abc',
     'pathname': '/a/b',
     'path': '/a/b?a=b'
+  },
+
+  'scp://user@host.com:path/a/b/c': {
+    'protocol': 'scp:',
+    'slashes': true,
+    'auth': 'user',
+    'host': 'host.com',
+    'hostname': 'host.com',
+    'href': 'scp://user@host.com:path/a/b/c',
+    'pathname': ':path/a/b/c',
+    'path': ':path/a/b/c'
   }
+
 };
 
 for (var u in parseTests) {
