@@ -44,6 +44,7 @@ using v8::Integer;
 // defined in node.cc
 extern ngx_queue_t handle_wrap_queue;
 
+static Persistent<String> onclose_sym;
 
 void HandleWrap::Initialize(Handle<Object> target) {
   /* Doesn't do anything at the moment. */
@@ -79,6 +80,21 @@ Handle<Value> HandleWrap::Close(const Arguments& args) {
 
   HandleWrap *wrap = static_cast<HandleWrap*>(
       args.Holder()->GetPointerFromInternalField(0));
+
+
+  Local<Value> cb_v;
+
+  // provided a callback.  save it on the object for later.
+  if (args.Length() > 0) {
+    cb_v = args[0];
+
+    if (cb_v->IsFunction()) {
+      if (onclose_sym.IsEmpty()) {
+        onclose_sym = NODE_PSYMBOL("onclose");
+      }
+      wrap->object_->Set(onclose_sym, cb_v);
+    }
+  }
 
   // guard against uninitialized handle or double close
   if (wrap && wrap->handle__) {
@@ -127,6 +143,21 @@ void HandleWrap::OnClose(uv_handle_t* handle) {
 
   // But the handle pointer should be gone.
   assert(wrap->handle__ == NULL);
+
+  if (onclose_sym.IsEmpty()) {
+    onclose_sym = NODE_PSYMBOL("onclose");
+  }
+  Local<Value> cb_v = wrap->object_->Get(onclose_sym);
+  if (cb_v->IsFunction()) {
+    Local<Function> cb = Local<Function>::Cast(cb_v);
+    TryCatch try_catch;
+
+    cb->Call(wrap->object_, 0, NULL);
+
+    if (try_catch.HasCaught()) {
+      FatalException(try_catch);
+    }
+  }
 
   wrap->object_->SetPointerInInternalField(0, NULL);
   wrap->object_.Dispose();
