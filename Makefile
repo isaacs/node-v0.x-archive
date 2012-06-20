@@ -130,7 +130,12 @@ website_files = \
 	out/doc/changelog.html \
 	$(doc_images)
 
-doc: program $(apidoc_dirs) $(website_files) $(apiassets) $(apidocs) tools/doc/
+doc: program $(apidoc_dirs) $(website_files) $(apiassets) $(apidocs) tools/doc/ blog
+
+blog: out/doc/blog
+
+out/doc/blog: doc/blog out/Release/node
+	out/Release/node tools/blog/generate.js doc/blog/ out/doc/blog/ doc/blog.html
 
 $(apidoc_dirs):
 	mkdir -p $@
