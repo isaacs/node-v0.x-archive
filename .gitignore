@@ -18,6 +18,7 @@ node_g
 # various stuff that VC++ produces/uses
 Debug/
 Release/
+!doc/blog/**
 *.sln
 !nodemsi.sln
 *.suo
