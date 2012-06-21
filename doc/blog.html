@@ -34,6 +34,11 @@
     div.post-in-feed {
       padding-bottom:1em;
     }
+
+    p.next { float:right; width: 40%; text-align:right; }
+    p.prev { float:left; width:40%; text-align:left; }
+
+    pre { overflow: auto; }
   </style>
 
   <title><%= title %></title>
@@ -93,22 +98,19 @@
           <%
           if (post.next || post.prev) {
             if (post.prev) {
-              %><a href="<%=
+              %><p class="prev"><a href="<%=
                 post.prev.permalink
               %>">&larr; <%=
                 post.prev.title
-              %></a>
+              %></a></p>
               <%
-              if (post.next) {
-                %> | <%
-              }
             }
             if (post.next) {
-              %><a href="<%=
+              %><p class="next"><a href="<%=
                 post.next.permalink
               %>"><%=
                 post.next.title
-              %> &rarr;</a>
+              %> &rarr;</a></p>
               <%
             }
           }
