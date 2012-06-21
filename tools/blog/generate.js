@@ -5,16 +5,22 @@ var mkdirp = require('mkdirp');
 var glob = require('glob');
 var ejs = require('ejs');
 var path = require('path');
+var semver = require('semver');
 
 var input = path.resolve(process.argv[2]);
 var output = path.resolve(process.argv[3]);
 var template = path.resolve(process.argv[4]);
+
+var config = {
+  postsPerPage: 5
+};
 
 console.error("argv=%j", process.argv)
 
 fs.readFile(template, 'utf8', function(er, contents) {
   if (er) throw er;
   template = ejs.compile(contents, template);
+  console.error(template.toString());
   readInput();
 });
 
@@ -27,7 +33,7 @@ function readInput() {
 
 function readFiles(files) {
   var n = files.length;
-  var data = {};
+  var data = { files: {}, feeds: {}, posts: {}};
 
   files.forEach(function(file) {
     fs.readFile(file, 'utf8', next(file));
@@ -38,7 +44,7 @@ function readFiles(files) {
     if (contents) {
       contents = parseFile(file, contents);
       if (contents) {
-        data[file] = contents
+        data.files[file] = contents
       }
     }
     if (--n === 0) {
@@ -63,13 +69,9 @@ function parseFile(file, contents) {
   return post;
 }
 
-function buildOutput(data) {
-  buildPermalinks(data);
-}
-
 function buildPermalinks(data) {
-  Object.keys(data).forEach(function(k) {
-    buildPermalink(k, data[k]);
+  Object.keys(data.files).forEach(function(k) {
+    data.posts[k] = buildPermalink(k, data.files[k]);
   });
 }
 
@@ -78,7 +80,7 @@ function buildPermalink(key, post) {
   var data = {};
   data.pageid = post.slug;
   data.title = post.title;
-  data.content = marked.parse(post.body);
+  data.content = post.content = marked.parse(post.body);
 
   // Fix for chjj/marked#56
   data.content = data.content
@@ -86,15 +88,16 @@ function buildPermalink(key, post) {
 
   data.post = post;
 
-  var d = new Date(post.date);
-  console.error(d, d instanceof Date);
+  var d = post.date = new Date(post.date);
 
   var y = d.getYear() + 1900;
   var m = d.getMonth() + 1;
   var d = d.getDate();
   var uri = '/' + y + '/' + m + '/' + d + '/' + post.slug;
+  post.data = data;
 
-  writeFile(uri, data);
+  post.permalink = data.permalink = uri;
+  return data;
 }
 
 function writeFile(uri, data) {
@@ -109,3 +112,146 @@ function writeFile(uri, data) {
     });
   });
 }
+
+// sort in reverse chronological order
+// prune out any releases that are not the most recent on their branch.
+function buildFeeds(data) {
+  console.error('buildFeeds', data)
+  // first, sort by date.
+  var posts = Object.keys(data.posts).map(function(k) {
+    console.error('k=%s', k)
+    return data.posts[k].post;
+  }).sort(function(a, b) {
+    a = a.date.getTime();
+    b = b.date.getTime();
+    return (a === b) ? 0 : a > b ? -1 : 1;
+  })
+
+  // separate release posts by release families.
+  var releases = posts.reduce(function(releases, post) {
+    console.error(releases, post);
+    if (post.category !== 'release') return releases;
+    var ver = semver.parse(post.version);
+    if (!ver) return;
+    var major = +ver[1];
+    var minor = +ver[2];
+    var patch = +ver[3];
+    var family = [major, minor];
+    ver = [major, minor, patch, post];
+    if (family[1] % 2) family[1]++;
+    family = family.join('.');
+    post.family = family;
+    releases[family] = releases[family] || [];
+    releases[family].push(post);
+    return releases;
+  }, {});
+
+  // separate by categories.
+  var categories = posts.reduce(function(categories, post) {
+    if (!post.category) return categories;
+    if (!categories[post.category]) {
+      categories[post.category] = [];
+    }
+    categories[post.category].push(post);
+    return categories;
+  }, {});
+
+  // paginate categories.
+  for (var cat in categories) {
+    categories[cat] = paginate(categories[cat], cat);
+  }
+
+  // filter non-latest release notices out of main feeds.
+  var main = posts.filter(function(post) {
+    if (post.version && post.family && post !== releases[post.family][0]) {
+      return false;
+    }
+    return true;
+  });
+
+  // add previous/next based on main feed.
+  main.forEach(function (post, i) {
+    post.next = posts[i + 1];
+    post.prev = posts[i - 1];
+  })
+
+  // paginate each feed.
+  main = paginate(main, 'index');
+
+  // put previous/next links on orphaned old releases so you can get back
+  for (var family in releases) {
+    releases[family].forEach(function(post, i, family) {
+      if (!post.next) post.next = family[i + 1];
+      if (!post.prev) post.prev = family[i - 1];
+    });
+    // paginate
+    releases[family] = paginate(releases[family], family);
+  }
+
+  // paginate
+  data.feeds = {
+    main: main,
+    categories: categories,
+    releases: releases
+  };
+}
+
+function paginate(set, title) {
+  var pp = config.postsPerPage || 5
+  var pages = [];
+  for (var i = 0; i < set.length; i += pp) {
+    pages.push(set.slice(i, i + pp));
+  }
+  var id = title.replace(/^[a-zA-Z0-9]+/g, '-');
+  return { pageid: id, posts: set, pages: pages, title: title };
+}
+
+function writePermalinks(data) {
+  Object.keys(data.posts).forEach(function(k) {
+    var post = data.posts[k];
+    writeFile(post.uri, post);
+  });
+}
+
+function writeFeeds(data) {
+  writeFeed(data.feeds.main);
+
+  for (var feed in data.feeds.categories) {
+    writeFeed(data.feeds.categories[feed]);
+  }
+  for (var feed in data.feeds.releases) {
+    writeFeed(data.feeds.releases[feed]);
+  }
+}
+
+function writeFeed(feed) {
+  var title = feed.title;
+  feed.pages.forEach(function(page, p, pages) {
+    writePaginated(feed.title, page, p, pages.length, feed.id);
+  });
+}
+
+function writePaginated(title, posts, p, total, id) {
+  var uri = '/' + encodeURIComponent(title);
+  var d = {
+    title: title,
+    page: p,
+    posts: posts,
+    total: total,
+    paginated: true,
+    pageid: id + '-' + p,
+    uri: uri
+  };
+  if (p === 0) {
+    writeFile(uri, d);
+  }
+  writeFile(uri + '/' + p, d);
+}
+
+function buildOutput(data) {
+  buildPermalinks(data);
+  buildFeeds(data);
+  writePermalinks(data);
+  writeFeeds(data);
+}
+
