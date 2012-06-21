@@ -82,8 +82,8 @@ function buildPermalink(key, post) {
   data.content = post.content = marked.parse(post.body);
 
   // Fix for chjj/marked#56
-  data.content = data.content
-    .replace(/<a href="([^"]+)&lt;\/a&gt;">\1&lt;\/a&gt;/, '$1');
+  data.content = post.content = data.content
+    .replace(/<a href="([^"]+)&lt;\/a&gt;">\1&lt;\/a&gt;/g, '$1');
 
   data.post = post;
 
@@ -92,14 +92,17 @@ function buildPermalink(key, post) {
   var y = d.getYear() + 1900;
   var m = d.getUTCMonth() + 1;
   var d = d.getUTCDate();
-  var uri = '/' + y + '/' + m + '/' + d + '/' + post.slug;
+  var uri = '/' + y + '/' + m + '/' + d + '/' + post.slug + '/';
   post.data = data;
+  post.uri = uri;
 
   post.permalink = data.permalink = uri;
   return data;
 }
 
 function writeFile(uri, data) {
+  data.uri = path.join(data.uri);
+  uri = path.join(uri);
   var contents = template(data);
   var outdir = path.join(output, uri);
   mkdirp(outdir, function(er) {
@@ -107,7 +110,7 @@ function writeFile(uri, data) {
     var file = path.resolve(outdir, 'index.html');
     fs.writeFile(file, contents, 'utf8', function(er) {
       if (er) throw er;
-      console.log('wrote: ', data.pageid, file);
+      //console.log('wrote: ', data.pageid, file);
     });
   });
 }
@@ -166,19 +169,28 @@ function buildFeeds(data) {
   });
 
   // add previous/next based on main feed.
-  main.forEach(function (post, i) {
-    post.next = posts[i + 1];
-    post.prev = posts[i - 1];
+  main.forEach(function (post, i, posts) {
+    post.next = posts[i - 1];
+    post.prev = posts[i + 1];
   })
 
   // paginate each feed.
-  main = paginate(main, 'index');
+  main = paginate(main, '');
 
   // put previous/next links on orphaned old releases so you can get back
   for (var family in releases) {
     releases[family].forEach(function(post, i, family) {
-      if (!post.next) post.next = family[i + 1];
-      if (!post.prev) post.prev = family[i - 1];
+      if (!post.next) post.next = family[i - 1];
+      if (!post.next) post.next = family[0].next;
+      // if (!post.next) post.next = family[0];
+
+      if (!post.prev) post.prev = family[i + 1];
+      if (!post.prev) post.prev = family[0].prev;
+
+      console.error('this=%s next=%s prev=%s',
+                    post.title,
+                    post.next && post.next.title,
+                    post.prev && post.prev.title);
     });
     // paginate
     releases[family] = paginate(releases[family], family);
@@ -199,13 +211,13 @@ function paginate(set, title) {
     pages.push(set.slice(i, i + pp));
   }
   var id = title.replace(/^[a-zA-Z0-9]+/g, '-');
-  return { pageid: id, posts: set, pages: pages, title: title };
+  return { id: id || 'index', pageid: id, posts: set, pages: pages, title: title };
 }
 
 function writePermalinks(data) {
   Object.keys(data.posts).forEach(function(k) {
     var post = data.posts[k];
-    writeFile(post.uri, post);
+    writeFile(post.permalink, post);
   });
 }
 
@@ -228,7 +240,7 @@ function writeFeed(feed) {
 }
 
 function writePaginated(title, posts, p, total, id) {
-  var uri = '/' + encodeURIComponent(title);
+  var uri = '/' + encodeURIComponent(title) + '/';
   var d = {
     title: title,
     page: p,
@@ -241,7 +253,7 @@ function writePaginated(title, posts, p, total, id) {
   if (p === 0) {
     writeFile(uri, d);
   }
-  writeFile(uri + '/' + p, d);
+  writeFile(uri + p, d);
 }
 
 function buildOutput(data) {
