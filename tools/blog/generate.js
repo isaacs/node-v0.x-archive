@@ -89,8 +89,10 @@ function buildPermalink(key, post) {
   var d = post.date = new Date(post.date);
 
   var y = d.getYear() + 1900;
-  var m = d.getUTCMonth() + 1;
-  var d = d.getUTCDate();
+  var m = d.getMonth() + 1;
+  if (m < 10) m = '0' + m;
+  var d = d.getDate();
+  if (d < 10) d = '0' + d;
   var uri = '/' + y + '/' + m + '/' + d + '/' + post.slug + '/';
   post.data = data;
   post.uri = uri;
