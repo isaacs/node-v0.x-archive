@@ -132,9 +132,7 @@ website_files = \
 
 doc: program $(apidoc_dirs) $(website_files) $(apiassets) $(apidocs) tools/doc/ blog
 
-blog: out/doc/blog
-
-out/doc/blog: doc/blog out/Release/node
+blog: doc/blog out/Release/node tools/blog
 	out/Release/node tools/blog/generate.js doc/blog/ out/doc/blog/ doc/blog.html
 
 $(apidoc_dirs):
@@ -265,4 +263,4 @@ cpplint:
 
 lint: jslint cpplint
 
-.PHONY: lint cpplint jslint bench clean docopen docclean doc dist distclean check uninstall install install-includes install-bin all program staticlib dynamiclib test test-all website-upload pkg
+.PHONY: lint cpplint jslint bench clean docopen docclean doc dist distclean check uninstall install install-includes install-bin all program staticlib dynamiclib test test-all website-upload pkg blog

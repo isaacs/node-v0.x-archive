@@ -75,7 +75,6 @@ function buildPermalinks(data) {
 }
 
 function buildPermalink(key, post) {
-  console.error('permalink', key, post.slug);
   var data = {};
   data.pageid = post.slug;
   data.title = post.title;
@@ -110,7 +109,7 @@ function writeFile(uri, data) {
     var file = path.resolve(outdir, 'index.html');
     fs.writeFile(file, contents, 'utf8', function(er) {
       if (er) throw er;
-      //console.log('wrote: ', data.pageid, file);
+      console.log('wrote: ', data.pageid, path.relative(process.cwd(), file));
     });
   });
 }
@@ -186,14 +185,9 @@ function buildFeeds(data) {
 
       if (!post.prev) post.prev = family[i + 1];
       if (!post.prev) post.prev = family[0].prev;
-
-      console.error('this=%s next=%s prev=%s',
-                    post.title,
-                    post.next && post.next.title,
-                    post.prev && post.prev.title);
     });
     // paginate
-    releases[family] = paginate(releases[family], family);
+    releases[family] = paginate(releases[family], 'release-' + family);
   }
 
   // paginate
@@ -210,7 +204,7 @@ function paginate(set, title) {
   for (var i = 0; i < set.length; i += pp) {
     pages.push(set.slice(i, i + pp));
   }
-  var id = title.replace(/^[a-zA-Z0-9]+/g, '-');
+  var id = title.replace(/[^a-zA-Z0-9.]+/g, '-');
   return { id: id || 'index', pageid: id, posts: set, pages: pages, title: title };
 }
 
