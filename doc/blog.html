@@ -6,6 +6,9 @@
   <link rel="stylesheet" href="http://nodejs.org/pipe.css">
   <link rel="stylesheet" href="http://nodejs.org/sh_vim-dark.css">
   <style>
+    #column1 h1 {
+      clear:both;
+    }
     #column1 li, #content h1 + p {
       color:inherit;
       font-family: inherit;
@@ -116,26 +119,21 @@
           }
         } else {  // not single post page
           if (paginated && total > 1 ) {
-            %>
-            <div id="gtoc">
-              <p>
-                <% if (page > 0) {
-                  // add 1 to all of the displayed numbers, because
-                  // humans are not zero-indexed like they ought to be.
-                  %>
-                  <a href="<%= uri + (page - 1) %>">
-                    &larr; Page <%- page %>
-                  </a>
-                  <% if (page < total - 1) { %> | <% } %>
-                <% } %>
-                <% if (page < total - 1) { %>
-                  <a href="<%= uri + (page + 1) %>">
-                    Page <%- page + 2 %> &rarr;
-                  </a>
-                <% } %>
-              </p>
-            </div>
-            <%
+            if (page > 0) {
+              // add 1 to all of the displayed numbers, because
+              // humans are not zero-indexed like they ought to be.
+              %>
+              <p class="prev"><a href="<%= uri + (page - 1) %>">
+                &larr; Page <%- page %>
+              </a></p>
+              <%
+            }
+            if (page < total - 1) { %>
+              <p class="next"><a href="<%= uri + (page + 1) %>">
+                Page <%- page + 2 %> &rarr;
+              </a></p>
+              <%
+            }
           }
 
           posts.forEach(function(post) {
@@ -156,33 +154,21 @@
           });
 
           if (paginated && total > 1 ) {
-            %>
-            <div id="gtoc">
-              <p>
-                <%
-                if (page > 0) {
-                  // add 1 to all of the displayed numbers, because
-                  // humans are not zero-indexed like they ought to be.
-                  %>
-                  <a href="<%= uri + (page - 1) %>">
-                    &larr; Page <%- page %>
-                  </a>
-                  <%
-                  if (page < total - 1) {
-                    %> | <%
-                  }
-                }
-                if (page < total - 1) {
-                  %>
-                  <a href="<%= uri + (page + 1) %>">
-                    Page <%- page + 2 %> &rarr;
-                  </a>
-                  <%
-                }
-                %>
-              </p>
-            </div>
-            <%
+            if (page > 0) {
+              // add 1 to all of the displayed numbers, because
+              // humans are not zero-indexed like they ought to be.
+              %>
+              <p class="prev"><a href="<%= uri + (page - 1) %>">
+                &larr; Page <%- page %>
+              </a></p>
+              <%
+            }
+            if (page < total - 1) { %>
+              <p class="next"><a href="<%= uri + (page + 1) %>">
+                Page <%- page + 2 %> &rarr;
+              </a></p>
+              <%
+            }
           } // pagination
         } // not a single post
         %>
