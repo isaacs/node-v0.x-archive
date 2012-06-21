@@ -20,7 +20,6 @@ console.error("argv=%j", process.argv)
 fs.readFile(template, 'utf8', function(er, contents) {
   if (er) throw er;
   template = ejs.compile(contents, template);
-  console.error(template.toString());
   readInput();
 });
 
@@ -76,7 +75,7 @@ function buildPermalinks(data) {
 }
 
 function buildPermalink(key, post) {
-  console.error('post', key, post);
+  console.error('permalink', key, post.slug);
   var data = {};
   data.pageid = post.slug;
   data.title = post.title;
@@ -91,8 +90,8 @@ function buildPermalink(key, post) {
   var d = post.date = new Date(post.date);
 
   var y = d.getYear() + 1900;
-  var m = d.getMonth() + 1;
-  var d = d.getDate();
+  var m = d.getUTCMonth() + 1;
+  var d = d.getUTCDate();
   var uri = '/' + y + '/' + m + '/' + d + '/' + post.slug;
   post.data = data;
 
@@ -108,7 +107,7 @@ function writeFile(uri, data) {
     var file = path.resolve(outdir, 'index.html');
     fs.writeFile(file, contents, 'utf8', function(er) {
       if (er) throw er;
-      console.log('wrote: ', file);
+      console.log('wrote: ', data.pageid, file);
     });
   });
 }
@@ -116,10 +115,8 @@ function writeFile(uri, data) {
 // sort in reverse chronological order
 // prune out any releases that are not the most recent on their branch.
 function buildFeeds(data) {
-  console.error('buildFeeds', data)
   // first, sort by date.
   var posts = Object.keys(data.posts).map(function(k) {
-    console.error('k=%s', k)
     return data.posts[k].post;
   }).sort(function(a, b) {
     a = a.date.getTime();
@@ -129,7 +126,6 @@ function buildFeeds(data) {
 
   // separate release posts by release families.
   var releases = posts.reduce(function(releases, post) {
-    console.error(releases, post);
     if (post.category !== 'release') return releases;
     var ver = semver.parse(post.version);
     if (!ver) return;
