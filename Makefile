@@ -132,8 +132,11 @@ website_files = \
 
 doc: program $(apidoc_dirs) $(website_files) $(apiassets) $(apidocs) tools/doc/ blog
 
+blogclean:
+	rm -rf out/blog
+
 blog: doc/blog out/Release/node tools/blog
-	out/Release/node tools/blog/generate.js doc/blog/ out/doc/blog/ doc/blog.html
+	out/Release/node tools/blog/generate.js doc/blog/ out/blog/ doc/blog.html
 
 $(apidoc_dirs):
 	mkdir -p $@
@@ -162,6 +165,9 @@ email.md: ChangeLog tools/email-footer.md
 
 blog.html: email.md
 	cat $< | ./node tools/doc/node_modules/.bin/marked > $@
+
+blog-upload: blog
+	rsync -r out/blog/ node@nodejs.org:~/web/nodejs.org/blog/
 
 website-upload: doc
 	rsync -r out/doc/ node@nodejs.org:~/web/nodejs.org/
@@ -263,4 +269,4 @@ cpplint:
 
 lint: jslint cpplint
 
-.PHONY: lint cpplint jslint bench clean docopen docclean doc dist distclean check uninstall install install-includes install-bin all program staticlib dynamiclib test test-all website-upload pkg blog
+.PHONY: lint cpplint jslint bench clean docopen docclean doc dist distclean check uninstall install install-includes install-bin all program staticlib dynamiclib test test-all website-upload pkg blog blogclean
