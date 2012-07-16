@@ -235,9 +235,12 @@
         domain.enter();
       }
 
-      var ret = fn.apply(obj, args);
-
-      if (domain) domain.exit();
+      // make sure we exit the domain, even if the cb throws
+      try {
+        var ret = fn.apply(obj, args);
+      } finally {
+        if (domain) domain.exit();
+      }
 
       process._tickCallback();
       return ret;
@@ -254,7 +257,7 @@
     // This is a loop counter, not a stack depth, so we aren't using
     // up lots of memory here.  I/O can sneak in before nextTick if this
     // limit is hit, which is not ideal, but not terrible.
-    process.maxTickDepth = 1000;
+    process.maxTickDepth = 10;
 
     var tickDepth = 0;
 
@@ -278,9 +281,23 @@
             if (tock.domain._disposed) continue;
             tock.domain.enter();
           }
-          callback();
-          if (tock.domain) {
-            tock.domain.exit();
+
+          // make sure to clean up the queue and index if it throws.
+          // do this try/finally trick to avoid changing the
+          // source line with a try/catch/rethrow
+          var threw = true;
+          try {
+            callback();
+            threw = false;
+          } finally {
+            if (tock.domain) {
+              tock.domain.exit();
+            }
+            if (threw) {
+              nextTickQueue.splice(0, nextTickIndex);
+              tickDepth = 0;
+              nextTickIndex = 0;
+            }
           }
         }
 
