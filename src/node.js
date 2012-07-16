@@ -234,12 +234,8 @@
         if (domain._disposed) return;
         domain.enter();
       }
-
       var ret = fn.apply(obj, args);
-
       if (domain) domain.exit();
-
-      process._tickCallback();
       return ret;
     };
   };
@@ -247,8 +243,11 @@
   startup.processNextTick = function() {
     var nextTickQueue = [];
     var nextTickIndex = 0;
+    var inTick = false;
 
     process._tickCallback = function() {
+      if (inTick) return;
+      inTick = true;
       var nextTickLength = nextTickQueue.length;
       if (nextTickLength === 0) return;
 
@@ -259,14 +258,23 @@
           if (tock.domain._disposed) continue;
           tock.domain.enter();
         }
-        callback();
-        if (tock.domain) {
-          tock.domain.exit();
+        var threw = true;
+        try {
+          callback();
+          threw = false;
+        } finally {
+          if (threw) {
+            nextTickQueue.splice(0, nextTickIndex);
+            nextTickIndex = 0;
+            inTick = false;
+          }
         }
+        if (tock.domain) tock.domain.exit();
       }
 
       nextTickQueue.splice(0, nextTickIndex);
       nextTickIndex = 0;
+      inTick = false;
     };
 
     process.nextTick = function(callback) {
