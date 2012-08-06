@@ -23,6 +23,13 @@ def load_config():
   s = re.sub(r'\'', '"', s) # convert quotes
   return json.loads(s)
 
+def try_env(key):
+  try:
+    return os.environ[key]
+  except KeyError:
+    # do nothing
+    return None
+
 def try_unlink(path):
   try:
     os.unlink(path)
@@ -154,7 +161,7 @@ def npm_files(action):
     action([link_path], 'bin/npm')
   elif action == install:
     try_symlink('../lib/node_modules/npm/bin/npm-cli.js', link_path)
-    if os.environ['PORTABLE']:
+    if try_env('PORTABLE'):
       # This crazy hack is necessary to make the shebang execute the copy
       # of node relative to the same directory as the npm script. The precompiled
       # binary tarballs use a prefix of "/" which gets translated to "/bin/node"
