@@ -6,59 +6,114 @@
 rm -rf asm
 
 #
-# Unix x86 GAS
+# Unix ELF x86 GAS
 #
-mkdir -p asm/x86-unix-gas
-mkdir -p asm/x86-unix-gas/aes
-mkdir -p asm/x86-unix-gas/bf
-mkdir -p asm/x86-unix-gas/bn
-mkdir -p asm/x86-unix-gas/camellia
-mkdir -p asm/x86-unix-gas/cast
-mkdir -p asm/x86-unix-gas/des
-mkdir -p asm/x86-unix-gas/md5
-mkdir -p asm/x86-unix-gas/rc4
-mkdir -p asm/x86-unix-gas/rc5
-mkdir -p asm/x86-unix-gas/ripemd
-mkdir -p asm/x86-unix-gas/sha
-mkdir -p asm/x86-unix-gas/whrlpool
-( cd openssl/crypto/aes/asm      && perl aes-586.pl    elf ) > asm/x86-unix-gas/aes/aes-586.s
-( cd openssl/crypto/bf/asm       && perl bf-686.pl     elf ) > asm/x86-unix-gas/bf/bf-686.s
-( cd openssl/crypto/bn/asm       && perl x86-mont.pl   elf ) > asm/x86-unix-gas/bn/x86-mont.s
-( cd openssl/crypto/bn/asm       && perl x86.pl        elf ) > asm/x86-unix-gas/bn/x86.s
-( cd openssl/crypto/camellia/asm && perl cmll-x86.pl   elf ) > asm/x86-unix-gas/camellia/cmll-x86.s
-( cd openssl/crypto/cast/asm     && perl cast-586.pl   elf ) > asm/x86-unix-gas/cast/cast-586.s
-( cd openssl/crypto/des/asm      && perl crypt586.pl   elf ) > asm/x86-unix-gas/des/crypt586.s
-( cd openssl/crypto/des/asm      && perl des-586.pl    elf ) > asm/x86-unix-gas/des/des-586.s
-( cd openssl/crypto/md5/asm      && perl md5-586.pl    elf ) > asm/x86-unix-gas/md5/md5-586.s
-( cd openssl/crypto/rc4/asm      && perl rc4-586.pl    elf ) > asm/x86-unix-gas/rc4/rc4-586.s
-( cd openssl/crypto/rc5/asm      && perl rc5-586.pl    elf ) > asm/x86-unix-gas/rc5/rc5-586.s
-( cd openssl/crypto/ripemd/asm   && perl rmd-586.pl    elf ) > asm/x86-unix-gas/ripemd/rmd-586.s
-( cd openssl/crypto/sha/asm      && perl sha1-586.pl   elf ) > asm/x86-unix-gas/sha/sha1-586.s
-( cd openssl/crypto/sha/asm      && perl sha256-586.pl elf ) > asm/x86-unix-gas/sha/sha256-586.s
-( cd openssl/crypto/sha/asm      && perl sha512-586.pl elf ) > asm/x86-unix-gas/sha/sha512-586.s
-( cd openssl/crypto/whrlpool/asm && perl wp-mmx.pl     elf ) > asm/x86-unix-gas/whrlpool/wp-mmx.s
-( cd openssl/crypto              && perl x86cpuid.pl   elf ) > asm/x86-unix-gas/x86cpuid.s
+mkdir -p asm/x86-elf-gas
+mkdir -p asm/x86-elf-gas/aes
+mkdir -p asm/x86-elf-gas/bf
+mkdir -p asm/x86-elf-gas/bn
+mkdir -p asm/x86-elf-gas/camellia
+mkdir -p asm/x86-elf-gas/cast
+mkdir -p asm/x86-elf-gas/des
+mkdir -p asm/x86-elf-gas/md5
+mkdir -p asm/x86-elf-gas/rc4
+mkdir -p asm/x86-elf-gas/rc5
+mkdir -p asm/x86-elf-gas/ripemd
+mkdir -p asm/x86-elf-gas/sha
+mkdir -p asm/x86-elf-gas/whrlpool
+( cd openssl/crypto/aes/asm      && perl aes-586.pl    elf ) > asm/x86-elf-gas/aes/aes-586.s
+( cd openssl/crypto/bf/asm       && perl bf-686.pl     elf ) > asm/x86-elf-gas/bf/bf-686.s
+( cd openssl/crypto/bn/asm       && perl x86-mont.pl   elf ) > asm/x86-elf-gas/bn/x86-mont.s
+( cd openssl/crypto/bn/asm       && perl x86.pl        elf ) > asm/x86-elf-gas/bn/x86.s
+( cd openssl/crypto/camellia/asm && perl cmll-x86.pl   elf ) > asm/x86-elf-gas/camellia/cmll-x86.s
+( cd openssl/crypto/cast/asm     && perl cast-586.pl   elf ) > asm/x86-elf-gas/cast/cast-586.s
+( cd openssl/crypto/des/asm      && perl crypt586.pl   elf ) > asm/x86-elf-gas/des/crypt586.s
+( cd openssl/crypto/des/asm      && perl des-586.pl    elf ) > asm/x86-elf-gas/des/des-586.s
+( cd openssl/crypto/md5/asm      && perl md5-586.pl    elf ) > asm/x86-elf-gas/md5/md5-586.s
+( cd openssl/crypto/rc4/asm      && perl rc4-586.pl    elf ) > asm/x86-elf-gas/rc4/rc4-586.s
+( cd openssl/crypto/rc5/asm      && perl rc5-586.pl    elf ) > asm/x86-elf-gas/rc5/rc5-586.s
+( cd openssl/crypto/ripemd/asm   && perl rmd-586.pl    elf ) > asm/x86-elf-gas/ripemd/rmd-586.s
+( cd openssl/crypto/sha/asm      && perl sha1-586.pl   elf ) > asm/x86-elf-gas/sha/sha1-586.s
+( cd openssl/crypto/sha/asm      && perl sha256-586.pl elf ) > asm/x86-elf-gas/sha/sha256-586.s
+( cd openssl/crypto/sha/asm      && perl sha512-586.pl elf ) > asm/x86-elf-gas/sha/sha512-586.s
+( cd openssl/crypto/whrlpool/asm && perl wp-mmx.pl     elf ) > asm/x86-elf-gas/whrlpool/wp-mmx.s
+( cd openssl/crypto              && perl x86cpuid.pl   elf ) > asm/x86-elf-gas/x86cpuid.s
 
 #
-# Unix x64 GAS
+# Unix ELF x64 GAS
 #
-mkdir -p asm/x64-unix-masm
-mkdir -p asm/x64-unix-masm/aes
-mkdir -p asm/x64-unix-masm/bn
-mkdir -p asm/x64-unix-masm/camellia
-mkdir -p asm/x64-unix-masm/md5
-mkdir -p asm/x64-unix-masm/rc4
-mkdir -p asm/x64-unix-masm/sha
-mkdir -p asm/x64-unix-masm/whrlpool
-( cd openssl/crypto/aes/asm      && perl aes-x86_64.pl    ) > asm/x64-unix-masm/aes/aes-x86_64.s
-( cd openssl/crypto/bn/asm       && perl x86_64-mont.pl   ) > asm/x64-unix-masm/bn/x86_64-mont.s
-( cd openssl/crypto/camellia/asm && perl cmll-x86_64.pl   ) > asm/x64-unix-masm/camellia/cmll-x86_64.s
-( cd openssl/crypto/md5/asm      && perl md5-x86_64.pl    ) > asm/x64-unix-masm/md5/md5-x86_64.s
-( cd openssl/crypto/rc4/asm      && perl rc4-x86_64.pl    ) > asm/x64-unix-masm/rc4/rc4-x86_64.s
-( cd openssl/crypto/sha/asm      && perl sha1-x86_64.pl   ) > asm/x64-unix-masm/sha/sha1-x86_64.s
-( cd openssl/crypto/sha/asm      && perl sha512-x86_64.pl ) > asm/x64-unix-masm/sha/sha512-x86_64.s
-( cd openssl/crypto/whrlpool/asm && perl wp-x86_64.pl     ) > asm/x64-unix-masm/whrlpool/wp-x86_64.s
-( cd openssl/crypto              && perl x86_64cpuid.pl   ) > asm/x64-unix-masm/x86_64cpuid.s
+mkdir -p asm/x64-elf-gas
+mkdir -p asm/x64-elf-gas/aes
+mkdir -p asm/x64-elf-gas/bn
+mkdir -p asm/x64-elf-gas/camellia
+mkdir -p asm/x64-elf-gas/md5
+mkdir -p asm/x64-elf-gas/rc4
+mkdir -p asm/x64-elf-gas/sha
+mkdir -p asm/x64-elf-gas/whrlpool
+( cd openssl/crypto/aes/asm      && perl aes-x86_64.pl    elf ) > asm/x64-elf-gas/aes/aes-x86_64.s
+( cd openssl/crypto/bn/asm       && perl x86_64-mont.pl   elf ) > asm/x64-elf-gas/bn/x86_64-mont.s
+( cd openssl/crypto/camellia/asm && perl cmll-x86_64.pl   elf ) > asm/x64-elf-gas/camellia/cmll-x86_64.s
+( cd openssl/crypto/md5/asm      && perl md5-x86_64.pl    elf ) > asm/x64-elf-gas/md5/md5-x86_64.s
+( cd openssl/crypto/rc4/asm      && perl rc4-x86_64.pl    elf ) > asm/x64-elf-gas/rc4/rc4-x86_64.s
+( cd openssl/crypto/sha/asm      && perl sha1-x86_64.pl   elf ) > asm/x64-elf-gas/sha/sha1-x86_64.s
+( cd openssl/crypto/sha/asm      && perl sha512-x86_64.pl elf ) > asm/x64-elf-gas/sha/sha512-x86_64.s
+( cd openssl/crypto/whrlpool/asm && perl wp-x86_64.pl     elf ) > asm/x64-elf-gas/whrlpool/wp-x86_64.s
+( cd openssl/crypto              && perl x86_64cpuid.pl   elf ) > asm/x64-elf-gas/x86_64cpuid.s
+
+#
+# Mac OS X x86 GAS
+#
+mkdir -p asm/x86-macosx-gas
+mkdir -p asm/x86-macosx-gas/aes
+mkdir -p asm/x86-macosx-gas/bf
+mkdir -p asm/x86-macosx-gas/bn
+mkdir -p asm/x86-macosx-gas/camellia
+mkdir -p asm/x86-macosx-gas/cast
+mkdir -p asm/x86-macosx-gas/des
+mkdir -p asm/x86-macosx-gas/md5
+mkdir -p asm/x86-macosx-gas/rc4
+mkdir -p asm/x86-macosx-gas/rc5
+mkdir -p asm/x86-macosx-gas/ripemd
+mkdir -p asm/x86-macosx-gas/sha
+mkdir -p asm/x86-macosx-gas/whrlpool
+( cd openssl/crypto/aes/asm      && perl aes-586.pl    macosx ) > asm/x86-macosx-gas/aes/aes-586.s
+( cd openssl/crypto/bf/asm       && perl bf-686.pl     macosx ) > asm/x86-macosx-gas/bf/bf-686.s
+( cd openssl/crypto/bn/asm       && perl x86-mont.pl   macosx ) > asm/x86-macosx-gas/bn/x86-mont.s
+( cd openssl/crypto/bn/asm       && perl x86.pl        macosx ) > asm/x86-macosx-gas/bn/x86.s
+( cd openssl/crypto/camellia/asm && perl cmll-x86.pl   macosx ) > asm/x86-macosx-gas/camellia/cmll-x86.s
+( cd openssl/crypto/cast/asm     && perl cast-586.pl   macosx ) > asm/x86-macosx-gas/cast/cast-586.s
+( cd openssl/crypto/des/asm      && perl crypt586.pl   macosx ) > asm/x86-macosx-gas/des/crypt586.s
+( cd openssl/crypto/des/asm      && perl des-586.pl    macosx ) > asm/x86-macosx-gas/des/des-586.s
+( cd openssl/crypto/md5/asm      && perl md5-586.pl    macosx ) > asm/x86-macosx-gas/md5/md5-586.s
+( cd openssl/crypto/rc4/asm      && perl rc4-586.pl    macosx ) > asm/x86-macosx-gas/rc4/rc4-586.s
+( cd openssl/crypto/rc5/asm      && perl rc5-586.pl    macosx ) > asm/x86-macosx-gas/rc5/rc5-586.s
+( cd openssl/crypto/ripemd/asm   && perl rmd-586.pl    macosx ) > asm/x86-macosx-gas/ripemd/rmd-586.s
+( cd openssl/crypto/sha/asm      && perl sha1-586.pl   macosx ) > asm/x86-macosx-gas/sha/sha1-586.s
+( cd openssl/crypto/sha/asm      && perl sha256-586.pl macosx ) > asm/x86-macosx-gas/sha/sha256-586.s
+( cd openssl/crypto/sha/asm      && perl sha512-586.pl macosx ) > asm/x86-macosx-gas/sha/sha512-586.s
+( cd openssl/crypto/whrlpool/asm && perl wp-mmx.pl     macosx ) > asm/x86-macosx-gas/whrlpool/wp-mmx.s
+( cd openssl/crypto              && perl x86cpuid.pl   macosx ) > asm/x86-macosx-gas/x86cpuid.s
+
+#
+# Mac OS X x64 GAS
+#
+mkdir -p asm/x64-macosx-gas
+mkdir -p asm/x64-macosx-gas/aes
+mkdir -p asm/x64-macosx-gas/bn
+mkdir -p asm/x64-macosx-gas/camellia
+mkdir -p asm/x64-macosx-gas/md5
+mkdir -p asm/x64-macosx-gas/rc4
+mkdir -p asm/x64-macosx-gas/sha
+mkdir -p asm/x64-macosx-gas/whrlpool
+( cd openssl/crypto/aes/asm      && perl aes-x86_64.pl    macosx ) > asm/x64-macosx-gas/aes/aes-x86_64.s
+( cd openssl/crypto/bn/asm       && perl x86_64-mont.pl   macosx ) > asm/x64-macosx-gas/bn/x86_64-mont.s
+( cd openssl/crypto/camellia/asm && perl cmll-x86_64.pl   macosx ) > asm/x64-macosx-gas/camellia/cmll-x86_64.s
+( cd openssl/crypto/md5/asm      && perl md5-x86_64.pl    macosx ) > asm/x64-macosx-gas/md5/md5-x86_64.s
+( cd openssl/crypto/rc4/asm      && perl rc4-x86_64.pl    macosx ) > asm/x64-macosx-gas/rc4/rc4-x86_64.s
+( cd openssl/crypto/sha/asm      && perl sha1-x86_64.pl   macosx ) > asm/x64-macosx-gas/sha/sha1-x86_64.s
+( cd openssl/crypto/sha/asm      && perl sha512-x86_64.pl macosx ) > asm/x64-macosx-gas/sha/sha512-x86_64.s
+( cd openssl/crypto/whrlpool/asm && perl wp-x86_64.pl     macosx ) > asm/x64-macosx-gas/whrlpool/wp-x86_64.s
+( cd openssl/crypto              && perl x86_64cpuid.pl   macosx ) > asm/x64-macosx-gas/x86_64cpuid.s
 
 #
 # Windows x86 MASM

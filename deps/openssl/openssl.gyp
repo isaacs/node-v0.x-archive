@@ -651,6 +651,88 @@
             'WP_ASM',
           ],
           'conditions': [
+            ['OS!="win" and OS!="mac" and target_arch=="ia32"', {
+              'sources': [
+                'asm/x86-elf-gas/aes/aes-586.s',
+                'asm/x86-elf-gas/bf/bf-686.s',
+                'asm/x86-elf-gas/bn/x86-mont.s',
+                'asm/x86-elf-gas/bn/x86.s',
+                'asm/x86-elf-gas/camellia/cmll-x86.s',
+                'asm/x86-elf-gas/cast/cast-586.s',
+                'asm/x86-elf-gas/des/crypt586.s',
+                'asm/x86-elf-gas/des/des-586.s',
+                'asm/x86-elf-gas/md5/md5-586.s',
+                'asm/x86-elf-gas/rc4/rc4-586.s',
+                'asm/x86-elf-gas/rc5/rc5-586.s',
+                'asm/x86-elf-gas/ripemd/rmd-586.s',
+                'asm/x86-elf-gas/sha/sha1-586.s',
+                'asm/x86-elf-gas/sha/sha256-586.s',
+                'asm/x86-elf-gas/sha/sha512-586.s',
+                'asm/x86-elf-gas/whrlpool/wp-mmx.s',
+                'asm/x86-elf-gas/x86cpuid.s'
+              ]
+            }],
+            ['OS!="win" and OS!="mac" and target_arch=="x64"', {
+              'sources': [
+                'asm/x64-elf-gas/aes/aes-x86_64.s',
+                'asm/x64-elf-gas/bn/x86_64-mont.s',
+                'asm/x64-elf-gas/camellia/cmll-x86_64.s',
+                'asm/x64-elf-gas/md5/md5-x86_64.s',
+                'asm/x64-elf-gas/rc4/rc4-x86_64.s',
+                'asm/x64-elf-gas/sha/sha1-x86_64.s',
+                'asm/x64-elf-gas/sha/sha512-x86_64.s',
+                'asm/x64-elf-gas/whrlpool/wp-x86_64.s',
+                'asm/x64-elf-gas/x86_64cpuid.s',
+                # Non-generated asm
+                'openssl/crypto/bn/asm/x86_64-gcc.c',
+                # No asm available
+                'openssl/crypto/cast/c_enc.c',
+                'openssl/crypto/des/des_enc.c',
+                'openssl/crypto/bf/bf_enc.c',
+                'openssl/crypto/mem_clr.c'
+              ]
+            }],
+            ['OS=="mac" and target_arch=="ia32"', {
+              'sources': [
+                'asm/x86-macosx-gas/aes/aes-586.s',
+                'asm/x86-macosx-gas/bf/bf-686.s',
+                'asm/x86-macosx-gas/bn/x86-mont.s',
+                'asm/x86-macosx-gas/bn/x86.s',
+                'asm/x86-macosx-gas/camellia/cmll-x86.s',
+                'asm/x86-macosx-gas/cast/cast-586.s',
+                'asm/x86-macosx-gas/des/crypt586.s',
+                'asm/x86-macosx-gas/des/des-586.s',
+                'asm/x86-macosx-gas/md5/md5-586.s',
+                'asm/x86-macosx-gas/rc4/rc4-586.s',
+                'asm/x86-macosx-gas/rc5/rc5-586.s',
+                'asm/x86-macosx-gas/ripemd/rmd-586.s',
+                'asm/x86-macosx-gas/sha/sha1-586.s',
+                'asm/x86-macosx-gas/sha/sha256-586.s',
+                'asm/x86-macosx-gas/sha/sha512-586.s',
+                'asm/x86-macosx-gas/whrlpool/wp-mmx.s',
+                'asm/x86-macosx-gas/x86cpuid.s'
+              ]
+            }],
+            ['OS=="mac" and target_arch=="x64"', {
+              'sources': [
+                'asm/x64-macosx-gas/aes/aes-x86_64.s',
+                'asm/x64-macosx-gas/bn/x86_64-mont.s',
+                'asm/x64-macosx-gas/camellia/cmll-x86_64.s',
+                'asm/x64-macosx-gas/md5/md5-x86_64.s',
+                'asm/x64-macosx-gas/rc4/rc4-x86_64.s',
+                'asm/x64-macosx-gas/sha/sha1-x86_64.s',
+                'asm/x64-macosx-gas/sha/sha512-x86_64.s',
+                'asm/x64-macosx-gas/whrlpool/wp-x86_64.s',
+                'asm/x64-macosx-gas/x86_64cpuid.s',
+                # Non-generated asm
+                'openssl/crypto/bn/asm/x86_64-gcc.c',
+                # No asm available
+                'openssl/crypto/cast/c_enc.c',
+                'openssl/crypto/des/des_enc.c',
+                'openssl/crypto/bf/bf_enc.c',
+                'openssl/crypto/mem_clr.c'
+              ]
+            }],
             ['OS=="win" and target_arch=="ia32"', {
               'sources': [
                 'asm/x86-win-masm/aes/aes-586.asm',
@@ -726,47 +808,6 @@
                   'process_outputs_as_sources': 0,
                   'message': 'Assembling <(RULE_INPUT_PATH) to <(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj.',
                 }
-              ]
-            }],
-            ['OS!="win" and target_arch=="ia32"', {
-              'sources': [
-                'asm/x86-unix-gas/aes/aes-586.s',
-                'asm/x86-unix-gas/bf/bf-686.s',
-                'asm/x86-unix-gas/bn/x86-mont.s',
-                'asm/x86-unix-gas/bn/x86.s',
-                'asm/x86-unix-gas/camellia/cmll-x86.s',
-                'asm/x86-unix-gas/cast/cast-586.s',
-                'asm/x86-unix-gas/des/crypt586.s',
-                'asm/x86-unix-gas/des/des-586.s',
-                'asm/x86-unix-gas/md5/md5-586.s',
-                'asm/x86-unix-gas/rc4/rc4-586.s',
-                'asm/x86-unix-gas/rc5/rc5-586.s',
-                'asm/x86-unix-gas/ripemd/rmd-586.s',
-                'asm/x86-unix-gas/sha/sha1-586.s',
-                'asm/x86-unix-gas/sha/sha256-586.s',
-                'asm/x86-unix-gas/sha/sha512-586.s',
-                'asm/x86-unix-gas/whrlpool/wp-mmx.s',
-                'asm/x86-unix-gas/x86cpuid.s'
-              ]
-            }],
-            ['OS!="win" and target_arch=="x64"', {
-              'sources': [
-                'asm/x64-unix-masm/aes/aes-x86_64.s',
-                'asm/x64-unix-masm/bn/x86_64-mont.s',
-                'asm/x64-unix-masm/camellia/cmll-x86_64.s',
-                'asm/x64-unix-masm/md5/md5-x86_64.s',
-                'asm/x64-unix-masm/rc4/rc4-x86_64.s',
-                'asm/x64-unix-masm/sha/sha1-x86_64.s',
-                'asm/x64-unix-masm/sha/sha512-x86_64.s',
-                'asm/x64-unix-masm/whrlpool/wp-x86_64.s',
-                'asm/x64-unix-masm/x86_64cpuid.s',
-                # Non-generated asm
-                'openssl/crypto/bn/asm/x86_64-gcc.c',
-                # No asm available
-                'openssl/crypto/cast/c_enc.c',
-                'openssl/crypto/des/des_enc.c',
-                'openssl/crypto/bf/bf_enc.c',
-                'openssl/crypto/mem_clr.c'
               ]
             }]
           ]
