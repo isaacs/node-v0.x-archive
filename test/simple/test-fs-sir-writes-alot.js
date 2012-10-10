@@ -67,5 +67,6 @@ process.on('exit', function() {
   // that we get (N * line.length). Let's just make sure we've checked a
   // few...
   assert.ok(bytesChecked > 1000);
+  console.log('ok');
 });
 

@@ -2632,15 +2632,19 @@ class Decipher : public ObjectWrap {
     int r;
 
     if (!initialised_) {
+      fprintf(stderr, "DecipherFinal not initialized\n");
       *out_len = 0;
       *out = NULL;
       return 0;
     }
 
+    fprintf(stderr, "DecipherFinal len=%d out=%s", *out_len, *out);
     *out = new unsigned char[EVP_CIPHER_CTX_block_size(&ctx)];
     r = EVP_CipherFinal_ex(&ctx,*out,out_len);
     EVP_CIPHER_CTX_cleanup(&ctx);
     initialised_ = false;
+    if (!r)
+      fprintf(stderr, "DecipherFinal actual fail\n");
     return r;
   }
 

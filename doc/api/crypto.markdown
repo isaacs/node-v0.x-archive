@@ -1,6 +1,6 @@
 # Crypto
 
-    Stability: 3 - Stable
+    Stability: 2 - Unstable (Reworking to standard stream API)
 
 Use `require('crypto')` to access this module.
 
@@ -196,13 +196,13 @@ You can disable auto padding if the data has been encrypted without standard blo
 `decipher.final` from checking and removing it. Can only work if the input data's length is a multiple of the
 ciphers block size. You must call this before streaming data to `decipher.update`.
 
-## crypto.createSign(algorithm)
+## crypto.createSign(algorithm, privateKey)
 
 Creates and returns a signing object, with the given algorithm.
 On recent OpenSSL releases, `openssl list-public-key-algorithms` will display
 the available signing algorithms. Examples are `'RSA-SHA256'`.
 
-## Class: Signer
+## Class: Sign
 
 Class for generating signatures.
 
