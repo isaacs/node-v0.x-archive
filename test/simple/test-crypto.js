@@ -571,6 +571,16 @@ assert.throws(function() {
   dh3.computeSecret('');
 }, /key is too small/i);
 
+// Create a shared using a DH group.
+var alice = crypto.createDiffieHellmanGroup('modp5');
+var bob = crypto.createDiffieHellmanGroup('modp5');
+alice.generateKeys();
+bob.generateKeys();
+var aSecret = alice.computeSecret(bob.getPublicKey()).toString('hex');
+var bSecret = bob.computeSecret(alice.getPublicKey()).toString('hex');
+assert.equal(aSecret, bSecret);
+
+
 // https://github.com/joyent/node/issues/2338
 assert.throws(function() {
   var p = 'FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74' +
