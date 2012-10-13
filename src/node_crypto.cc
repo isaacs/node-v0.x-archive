@@ -41,9 +41,9 @@
 # define OPENSSL_CONST
 #endif
 
-#define ASSERT_IS_STRING_OR_BUFFER(val) \
-  if (!val->IsString() && !Buffer::HasInstance(val)) { \
-    return ThrowException(Exception::TypeError(String::New("Not a string or buffer"))); \
+#define ASSERT_IS_BUFFER(val) \
+  if (!Buffer::HasInstance(val)) { \
+    return ThrowException(Exception::TypeError(String::New("Not a buffer"))); \
   }
 
 static const char PUBLIC_KEY_PFX[] =  "-----BEGIN PUBLIC KEY-----";
@@ -657,7 +657,7 @@ Handle<Value> SecureContext::LoadPKCS12(const Arguments& args) {
   }
 
   if (args.Length() >= 2) {
-    ASSERT_IS_STRING_OR_BUFFER(args[1]);
+    ASSERT_IS_BUFFER(args[1]);
 
     int passlen = DecodeBytes(args[1], BINARY);
     if (passlen < 0) {
@@ -1627,7 +1627,7 @@ Handle<Value> Connection::SetSession(const Arguments& args) {
     return ThrowException(exception);
   }
 
-  ASSERT_IS_STRING_OR_BUFFER(args[0]);
+  ASSERT_IS_BUFFER(args[0]);
   ssize_t slen = DecodeBytes(args[0], BINARY);
 
   if (slen < 0) {
@@ -2262,7 +2262,7 @@ class Cipher : public ObjectWrap {
         "Must give cipher-type, key")));
     }
 
-    ASSERT_IS_STRING_OR_BUFFER(args[1]);
+    ASSERT_IS_BUFFER(args[1]);
     ssize_t key_buf_len = DecodeBytes(args[1], BINARY);
 
     if (key_buf_len < 0) {
@@ -2304,7 +2304,7 @@ class Cipher : public ObjectWrap {
         "Must give cipher-type, key, and iv as argument")));
     }
 
-    ASSERT_IS_STRING_OR_BUFFER(args[1]);
+    ASSERT_IS_BUFFER(args[1]);
     ssize_t key_len = DecodeBytes(args[1], BINARY);
 
     if (key_len < 0) {
@@ -2312,7 +2312,7 @@ class Cipher : public ObjectWrap {
       return ThrowException(exception);
     }
 
-    ASSERT_IS_STRING_OR_BUFFER(args[2]);
+    ASSERT_IS_BUFFER(args[2]);
     ssize_t iv_len = DecodeBytes(args[2], BINARY);
 
     if (iv_len < 0) {
@@ -2347,7 +2347,7 @@ class Cipher : public ObjectWrap {
 
     HandleScope scope;
 
-    ASSERT_IS_STRING_OR_BUFFER(args[0]);
+    ASSERT_IS_BUFFER(args[0]);
 
     enum encoding enc = ParseEncoding(args[1]);
     ssize_t len = DecodeBytes(args[0], enc);
@@ -2671,7 +2671,7 @@ class Decipher : public ObjectWrap {
         "Must give cipher-type, key as argument")));
     }
 
-    ASSERT_IS_STRING_OR_BUFFER(args[1]);
+    ASSERT_IS_BUFFER(args[1]);
     ssize_t key_len = DecodeBytes(args[1], BINARY);
 
     if (key_len < 0) {
@@ -2713,7 +2713,7 @@ class Decipher : public ObjectWrap {
         "Must give cipher-type, key, and iv as argument")));
     }
 
-    ASSERT_IS_STRING_OR_BUFFER(args[1]);
+    ASSERT_IS_BUFFER(args[1]);
     ssize_t key_len = DecodeBytes(args[1], BINARY);
 
     if (key_len < 0) {
@@ -2721,7 +2721,7 @@ class Decipher : public ObjectWrap {
       return ThrowException(exception);
     }
 
-    ASSERT_IS_STRING_OR_BUFFER(args[2]);
+    ASSERT_IS_BUFFER(args[2]);
     ssize_t iv_len = DecodeBytes(args[2], BINARY);
 
     if (iv_len < 0) {
@@ -2756,7 +2756,7 @@ class Decipher : public ObjectWrap {
 
     Decipher *cipher = ObjectWrap::Unwrap<Decipher>(args.This());
 
-    ASSERT_IS_STRING_OR_BUFFER(args[0]);
+    ASSERT_IS_BUFFER(args[0]);
 
     ssize_t len = DecodeBytes(args[0], BINARY);
     if (len < 0) {
@@ -3024,7 +3024,7 @@ class Hmac : public ObjectWrap {
         "Must give hashtype string as argument")));
     }
 
-    ASSERT_IS_STRING_OR_BUFFER(args[1]);
+    ASSERT_IS_BUFFER(args[1]);
     ssize_t len = DecodeBytes(args[1], BINARY);
 
     if (len < 0) {
@@ -3064,7 +3064,7 @@ class Hmac : public ObjectWrap {
 
     HandleScope scope;
 
-    ASSERT_IS_STRING_OR_BUFFER(args[0]);
+    ASSERT_IS_BUFFER(args[0]);
     enum encoding enc = ParseEncoding(args[1]);
     ssize_t len = DecodeBytes(args[0], enc);
 
@@ -3211,7 +3211,7 @@ class Hash : public ObjectWrap {
 
     Hash *hash = ObjectWrap::Unwrap<Hash>(args.This());
 
-    ASSERT_IS_STRING_OR_BUFFER(args[0]);
+    ASSERT_IS_BUFFER(args[0]);
     enum encoding enc = ParseEncoding(args[1]);
     ssize_t len = DecodeBytes(args[0], enc);
 
@@ -3398,7 +3398,7 @@ class Sign : public ObjectWrap {
 
     HandleScope scope;
 
-    ASSERT_IS_STRING_OR_BUFFER(args[0]);
+    ASSERT_IS_BUFFER(args[0]);
     enum encoding enc = ParseEncoding(args[1]);
     ssize_t len = DecodeBytes(args[0], enc);
 
@@ -3445,7 +3445,7 @@ class Sign : public ObjectWrap {
     md_len = 8192; // Maximum key size is 8192 bits
     md_value = new unsigned char[md_len];
 
-    ASSERT_IS_STRING_OR_BUFFER(args[0]);
+    ASSERT_IS_BUFFER(args[0]);
     ssize_t len = DecodeBytes(args[0], BINARY);
 
     if (len < 0) {
@@ -3649,7 +3649,7 @@ class Verify : public ObjectWrap {
 
     Verify *verify = ObjectWrap::Unwrap<Verify>(args.This());
 
-    ASSERT_IS_STRING_OR_BUFFER(args[0]);
+    ASSERT_IS_BUFFER(args[0]);
     enum encoding enc = ParseEncoding(args[1]);
     ssize_t len = DecodeBytes(args[0], enc);
 
@@ -3688,7 +3688,7 @@ class Verify : public ObjectWrap {
 
     Verify *verify = ObjectWrap::Unwrap<Verify>(args.This());
 
-    ASSERT_IS_STRING_OR_BUFFER(args[0]);
+    ASSERT_IS_BUFFER(args[0]);
     ssize_t klen = DecodeBytes(args[0], BINARY);
 
     if (klen < 0) {
@@ -3700,7 +3700,7 @@ class Verify : public ObjectWrap {
     ssize_t kwritten = DecodeWrite(kbuf, klen, args[0], BINARY);
     assert(kwritten == klen);
 
-    ASSERT_IS_STRING_OR_BUFFER(args[1]);
+    ASSERT_IS_BUFFER(args[1]);
     ssize_t hlen = DecodeBytes(args[1], BINARY);
 
     if (hlen < 0) {
@@ -4378,7 +4378,7 @@ void EIO_PBKDF2(uv_work_t* work_req) {
 void EIO_PBKDF2After(pbkdf2_req* req, Local<Value> argv[2]) {
   if (req->err) {
     argv[0] = Local<Value>::New(Undefined());
-    argv[1] = Encode(req->key, req->keylen, BINARY);
+    argv[1] = Encode(req->key, req->keylen, BUFFER);
     memset(req->key, 0, req->keylen);
   } else {
     argv[0] = Exception::Error(String::New("PBKDF2 error"));
@@ -4423,7 +4423,7 @@ Handle<Value> PBKDF2(const Arguments& args) {
     goto err;
   }
 
-  ASSERT_IS_STRING_OR_BUFFER(args[0]);
+  ASSERT_IS_BUFFER(args[0]);
   passlen = DecodeBytes(args[0], BINARY);
   if (passlen < 0) {
     type_error = "Bad password";
@@ -4434,7 +4434,7 @@ Handle<Value> PBKDF2(const Arguments& args) {
   pass_written = DecodeWrite(pass, passlen, args[0], BINARY);
   assert(pass_written == passlen);
 
-  ASSERT_IS_STRING_OR_BUFFER(args[1]);
+  ASSERT_IS_BUFFER(args[1]);
   saltlen = DecodeBytes(args[1], BINARY);
   if (saltlen < 0) {
     type_error = "Bad salt";
