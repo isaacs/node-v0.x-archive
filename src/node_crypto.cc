@@ -286,9 +286,8 @@ static BIO* LoadBIO (Handle<Value> v) {
     String::Utf8Value s(v);
     r = BIO_write(bio, *s, s.length());
   } else if (Buffer::HasInstance(v)) {
-    Local<Object> buffer_obj = v->ToObject();
-    char *buffer_data = Buffer::Data(buffer_obj);
-    size_t buffer_length = Buffer::Length(buffer_obj);
+    char *buffer_data = Buffer::Data(v);
+    size_t buffer_length = Buffer::Length(v);
     r = BIO_write(bio, buffer_data, buffer_length);
   }
 
@@ -1283,9 +1282,8 @@ Handle<Value> Connection::EncIn(const Arguments& args) {
           String::New("Second argument should be a buffer")));
   }
 
-  Local<Object> buffer_obj = args[0]->ToObject();
-  char *buffer_data = Buffer::Data(buffer_obj);
-  size_t buffer_length = Buffer::Length(buffer_obj);
+  char *buffer_data = Buffer::Data(args[0]);
+  size_t buffer_length = Buffer::Length(args[0]);
 
   size_t off = args[1]->Int32Value();
   if (off >= buffer_length) {
@@ -1330,9 +1328,8 @@ Handle<Value> Connection::ClearOut(const Arguments& args) {
           String::New("Second argument should be a buffer")));
   }
 
-  Local<Object> buffer_obj = args[0]->ToObject();
-  char *buffer_data = Buffer::Data(buffer_obj);
-  size_t buffer_length = Buffer::Length(buffer_obj);
+  char *buffer_data = Buffer::Data(args[0]);
+  size_t buffer_length = Buffer::Length(args[0]);
 
   size_t off = args[1]->Int32Value();
   if (off >= buffer_length) {
@@ -1403,9 +1400,8 @@ Handle<Value> Connection::EncOut(const Arguments& args) {
           String::New("Second argument should be a buffer")));
   }
 
-  Local<Object> buffer_obj = args[0]->ToObject();
-  char *buffer_data = Buffer::Data(buffer_obj);
-  size_t buffer_length = Buffer::Length(buffer_obj);
+  char *buffer_data = Buffer::Data(args[0]);
+  size_t buffer_length = Buffer::Length(args[0]);
 
   size_t off = args[1]->Int32Value();
   if (off >= buffer_length) {
@@ -1443,9 +1439,8 @@ Handle<Value> Connection::ClearIn(const Arguments& args) {
           String::New("Second argument should be a buffer")));
   }
 
-  Local<Object> buffer_obj = args[0]->ToObject();
-  char *buffer_data = Buffer::Data(buffer_obj);
-  size_t buffer_length = Buffer::Length(buffer_obj);
+  char *buffer_data = Buffer::Data(args[0]);
+  size_t buffer_length = Buffer::Length(args[0]);
 
   size_t off = args[1]->Int32Value();
   if (off > buffer_length) {
@@ -2217,9 +2212,8 @@ class Cipher : public ObjectWrap {
 
     unsigned char *out=0;
     int out_len=0, r;
-    Local<Object> buffer_obj = args[0];
-    char* buffer_data = Buffer::Data(buffer_obj);
-    size_t buffer_length = Buffer::Length(buffer_obj);
+    char* buffer_data = Buffer::Data(args[0]);
+    size_t buffer_length = Buffer::Length(args[0]);
 
     r = cipher->CipherUpdate(buffer_data, buffer_length, &out, &out_len);
 
@@ -2531,9 +2525,8 @@ class Decipher : public ObjectWrap {
     char* buf;
     // if alloc_buf then buf must be deleted later
     bool alloc_buf = false;
-    Local<Object> buffer_obj = args[0]->ToObject();
-    char *buffer_data = Buffer::Data(buffer_obj);
-    size_t buffer_length = Buffer::Length(buffer_obj);
+    char *buffer_data = Buffer::Data(args[0]);
+    size_t buffer_length = Buffer::Length(args[0]);
 
     buf = buffer_data;
     len = buffer_length;
@@ -2694,9 +2687,8 @@ class Hmac : public ObjectWrap {
     bool r;
 
     if( Buffer::HasInstance(args[1])) {
-      Local<Object> buffer_obj = args[1]->ToObject();
-      char* buffer_data = Buffer::Data(buffer_obj);
-      size_t buffer_length = Buffer::Length(buffer_obj);
+      char* buffer_data = Buffer::Data(args[1]);
+      size_t buffer_length = Buffer::Length(args[1]);
 
       r = hmac->HmacInit(*hashType, buffer_data, buffer_length);
     } else {
@@ -2725,9 +2717,8 @@ class Hmac : public ObjectWrap {
 
     int r;
 
-    Local<Object> buffer_obj = args[0]->ToObject();
-    char *buffer_data = Buffer::Data(buffer_obj);
-    size_t buffer_length = Buffer::Length(buffer_obj);
+    char *buffer_data = Buffer::Data(args[0]);
+    size_t buffer_length = Buffer::Length(args[0]);
 
     r = hmac->HmacUpdate(buffer_data, buffer_length);
 
@@ -2841,9 +2832,8 @@ class Hash : public ObjectWrap {
 
     int r;
 
-    Local<Object> buffer_obj = args[0]->ToObject();
-    char *buffer_data = Buffer::Data(buffer_obj);
-    size_t buffer_length = Buffer::Length(buffer_obj);
+    char *buffer_data = Buffer::Data(args[0]);
+    size_t buffer_length = Buffer::Length(args[0]);
     r = hash->HashUpdate(buffer_data, buffer_length);
 
     if (!r) {
@@ -2994,9 +2984,8 @@ class Sign : public ObjectWrap {
 
     int r;
 
-    Local<Object> buffer_obj = args[0]->ToObject();
-    char *buffer_data = Buffer::Data(buffer_obj);
-    size_t buffer_length = Buffer::Length(buffer_obj);
+    char *buffer_data = Buffer::Data(args[0]);
+    size_t buffer_length = Buffer::Length(args[0]);
 
     r = sign->SignUpdate(buffer_data, buffer_length);
 
@@ -3206,9 +3195,8 @@ class Verify : public ObjectWrap {
 
     int r;
 
-    Local<Object> buffer_obj = args[0]->ToObject();
-    char *buffer_data = Buffer::Data(buffer_obj);
-    size_t buffer_length = Buffer::Length(buffer_obj);
+    char *buffer_data = Buffer::Data(args[0]);
+    size_t buffer_length = Buffer::Length(args[0]);
 
     r = verify->VerifyUpdate(buffer_data, buffer_length);
 
@@ -3602,13 +3590,7 @@ class DiffieHellman : public ObjectWrap {
 
     Local<Value> outString;
 
-    if (args.Length() > 2 && args[2]->IsString()) {
-      outString = EncodeWithEncoding(args[2], data, dataSize);
-    } else if (args.Length() > 1 && args[1]->IsString()) {
-      outString = EncodeWithEncoding(args[1], data, dataSize);
-    } else {
-      outString = Encode(data, dataSize, BUFFER);
-    }
+    outString = Encode(data, dataSize, BUFFER);
 
     delete[] data;
     return scope.Close(outString);
