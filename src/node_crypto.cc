@@ -1628,7 +1628,7 @@ Handle<Value> Connection::SetSession(const Arguments& args) {
   }
 
   ASSERT_IS_BUFFER(args[0]);
-  ssize_t slen = Buffer::Length(args[0]->ToObject());
+  ssize_t slen = Buffer::Length(args[0]);
 
   if (slen < 0) {
     Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -2217,8 +2217,8 @@ class Cipher : public ObjectWrap {
 
     unsigned char *out=0;
     int out_len=0, r;
-    Local<Object> buffer_obj = args[0]->ToObject();
-    char *buffer_data = Buffer::Data(buffer_obj);
+    Local<Object> buffer_obj = args[0];
+    char* buffer_data = Buffer::Data(buffer_obj);
     size_t buffer_length = Buffer::Length(buffer_obj);
 
     r = cipher->CipherUpdate(buffer_data, buffer_length, &out, &out_len);
@@ -2232,7 +2232,6 @@ class Cipher : public ObjectWrap {
     Local<Value> outString;
     outString = Encode(out, out_len, BUFFER);
 
-    // XXX: Is this safe to delete?  Isn't the buffer using it?
     if (out) delete [] out;
 
     return scope.Close(outString);
@@ -2757,7 +2756,6 @@ class Hmac : public ObjectWrap {
 
     outString = Encode(md_value, md_len, BUFFER);
 
-    // XXX is this delete safe?
     delete [] md_value;
     return scope.Close(outString);
   }
@@ -3039,7 +3037,6 @@ class Sign : public ObjectWrap {
 
     outString = Encode(md_value, md_len, BUFFER);
 
-    // XXX is this delete safe?
     delete [] md_value;
     return scope.Close(outString);
   }
