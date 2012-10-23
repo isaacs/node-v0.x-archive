@@ -658,7 +658,7 @@ Handle<Value> SecureContext::LoadPKCS12(const Arguments& args) {
   if (args.Length() >= 2) {
     ASSERT_IS_BUFFER(args[1]);
 
-    int passlen = Buffer::Length(args[1]->ToObject());
+    int passlen = Buffer::Length(args[1]);
     if (passlen < 0) {
       BIO_free(in);
       return ThrowException(Exception::TypeError(
@@ -2125,7 +2125,7 @@ class Cipher : public ObjectWrap {
     }
 
     ASSERT_IS_BUFFER(args[1]);
-    ssize_t key_buf_len = Buffer::Length(args[1]->ToObject());
+    ssize_t key_buf_len = Buffer::Length(args[1]);
 
     if (key_buf_len < 0) {
       Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -2166,7 +2166,7 @@ class Cipher : public ObjectWrap {
     }
 
     ASSERT_IS_BUFFER(args[1]);
-    ssize_t key_len = Buffer::Length(args[1]->ToObject());
+    ssize_t key_len = Buffer::Length(args[1]);
 
     if (key_len < 0) {
       Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -2174,7 +2174,7 @@ class Cipher : public ObjectWrap {
     }
 
     ASSERT_IS_BUFFER(args[2]);
-    ssize_t iv_len = Buffer::Length(args[2]->ToObject());
+    ssize_t iv_len = Buffer::Length(args[2]);
 
     if (iv_len < 0) {
       Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -2437,7 +2437,7 @@ class Decipher : public ObjectWrap {
     }
 
     ASSERT_IS_BUFFER(args[1]);
-    ssize_t key_len = Buffer::Length(args[1]->ToObject());
+    ssize_t key_len = Buffer::Length(args[1]);
 
     if (key_len < 0) {
       Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -2476,7 +2476,7 @@ class Decipher : public ObjectWrap {
     }
 
     ASSERT_IS_BUFFER(args[1]);
-    ssize_t key_len = Buffer::Length(args[1]->ToObject());
+    ssize_t key_len = Buffer::Length(args[1]);
 
     if (key_len < 0) {
       Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -2484,7 +2484,7 @@ class Decipher : public ObjectWrap {
     }
 
     ASSERT_IS_BUFFER(args[2]);
-    ssize_t iv_len = Buffer::Length(args[2]->ToObject());
+    ssize_t iv_len = Buffer::Length(args[2]);
 
     if (iv_len < 0) {
       Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -2675,7 +2675,7 @@ class Hmac : public ObjectWrap {
     }
 
     ASSERT_IS_BUFFER(args[1]);
-    ssize_t len = Buffer::Length(args[1]->ToObject());
+    ssize_t len = Buffer::Length(args[1]);
 
     if (len < 0) {
       Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -3010,7 +3010,7 @@ class Sign : public ObjectWrap {
     md_value = new unsigned char[md_len];
 
     ASSERT_IS_BUFFER(args[0]);
-    ssize_t len = Buffer::Length(args[0]->ToObject());
+    ssize_t len = Buffer::Length(args[0]);
 
     char* buf = new char[len];
     ssize_t written = DecodeWrite(buf, len, args[0], BUFFER);
@@ -3215,7 +3215,7 @@ class Verify : public ObjectWrap {
     Verify *verify = ObjectWrap::Unwrap<Verify>(args.This());
 
     ASSERT_IS_BUFFER(args[0]);
-    ssize_t klen = Buffer::Length(args[0]->ToObject());
+    ssize_t klen = Buffer::Length(args[0]);
 
     if (klen < 0) {
       Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
@@ -3227,7 +3227,7 @@ class Verify : public ObjectWrap {
     assert(kwritten == klen);
 
     ASSERT_IS_BUFFER(args[1]);
-    ssize_t hlen = Buffer::Length(args[1]->ToObject());
+    ssize_t hlen = Buffer::Length(args[1]);
 
     if (hlen < 0) {
       delete [] kbuf;
@@ -3372,10 +3372,9 @@ class DiffieHellman : public ObjectWrap {
       if (args[0]->IsInt32()) {
         initialized = diffieHellman->Init(args[0]->Int32Value());
       } else {
-        Local<Object> buffer = args[0]->ToObject();
         initialized = diffieHellman->Init(
-                reinterpret_cast<unsigned char*>(Buffer::Data(buffer)),
-                Buffer::Length(buffer));
+                reinterpret_cast<unsigned char*>(Buffer::Data(args[0])),
+                Buffer::Length(args[0]));
       }
     }
 
@@ -3539,10 +3538,9 @@ class DiffieHellman : public ObjectWrap {
             String::New("First argument must be other party's public key")));
     } else {
       ASSERT_IS_BUFFER(args[0]);
-      Local<Object> buffer = args[0]->ToObject();
       key = BN_bin2bn(
-        reinterpret_cast<unsigned char*>(Buffer::Data(buffer)),
-        Buffer::Length(buffer), 0);
+        reinterpret_cast<unsigned char*>(Buffer::Data(args[0])),
+        Buffer::Length(args[0]), 0);
     }
 
     int dataSize = DH_size(diffieHellman->dh);
@@ -3611,11 +3609,10 @@ class DiffieHellman : public ObjectWrap {
             String::New("First argument must be public key")));
     } else {
       ASSERT_IS_BUFFER(args[0]);
-      Local<Object> buffer = args[0]->ToObject();
       diffieHellman->dh->pub_key =
         BN_bin2bn(
-          reinterpret_cast<unsigned char*>(Buffer::Data(buffer)),
-          Buffer::Length(buffer), 0);
+          reinterpret_cast<unsigned char*>(Buffer::Data(args[0])),
+          Buffer::Length(args[0]), 0);
     }
 
     return args.This();
@@ -3637,11 +3634,10 @@ class DiffieHellman : public ObjectWrap {
             String::New("First argument must be private key")));
     } else {
       ASSERT_IS_BUFFER(args[0]);
-      Local<Object> buffer = args[0]->ToObject();
       diffieHellman->dh->priv_key =
         BN_bin2bn(
-          reinterpret_cast<unsigned char*>(Buffer::Data(buffer)),
-          Buffer::Length(buffer), 0);
+          reinterpret_cast<unsigned char*>(Buffer::Data(args[0])),
+          Buffer::Length(args[0]), 0);
     }
 
     return args.This();
@@ -3757,7 +3753,7 @@ Handle<Value> PBKDF2(const Arguments& args) {
   }
 
   ASSERT_IS_BUFFER(args[0]);
-  passlen = Buffer::Length(args[0]->ToObject());
+  passlen = Buffer::Length(args[0]);
   if (passlen < 0) {
     type_error = "Bad password";
     goto err;
@@ -3768,7 +3764,7 @@ Handle<Value> PBKDF2(const Arguments& args) {
   assert(pass_written == passlen);
 
   ASSERT_IS_BUFFER(args[1]);
-  saltlen = Buffer::Length(args[1]->ToObject());
+  saltlen = Buffer::Length(args[1]);
   if (saltlen < 0) {
     type_error = "Bad salt";
     goto err;
