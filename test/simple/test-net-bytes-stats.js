@@ -49,23 +49,25 @@ tcp.listen(common.PORT, function doTest() {
 
   socket.on('connect', function() {
     count++;
-    console.log('tcp client connection #' + count);
+    console.error('CLIENT connect #%d', count);
 
     socket.write('foo', function() {
-      console.error('write cb');
+      console.error('CLIENT: write cb');
       socket.end('bar');
     });
   });
 
-  socket.on('end', function() {
+  socket.on('finish', function() {
     bytesWritten += socket.bytesWritten;
-    console.log('tcp client disconnect #' + count);
+    console.error('CLIENT end event #%d', count);
   });
 
   socket.on('close', function() {
+    console.error('CLIENT close event #%d', count);
     console.log('Bytes read: ' + bytesRead);
     console.log('Bytes written: ' + bytesWritten);
     if (count < 2) {
+      console.error('RECONNECTING');
       socket.connect(tcpPort);
     } else {
       tcp.close();
