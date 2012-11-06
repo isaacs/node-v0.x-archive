@@ -34,13 +34,17 @@ var count = 0;
 var tcp = net.Server(function(s) {
   console.log('tcp server connection');
 
+  // trigger old mode.
+  s.resume();
+
   s.on('end', function() {
     bytesRead += s.bytesRead;
     console.log('tcp socket disconnect #' + count);
   });
 });
 
-tcp.listen(common.PORT, function() {
+tcp.listen(common.PORT, function doTest() {
+  console.error('listening');
   var socket = net.createConnection(tcpPort);
 
   socket.on('connect', function() {
@@ -48,6 +52,7 @@ tcp.listen(common.PORT, function() {
     console.log('tcp client connection #' + count);
 
     socket.write('foo', function() {
+      console.error('write cb');
       socket.end('bar');
     });
   });

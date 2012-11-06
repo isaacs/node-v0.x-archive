@@ -34,6 +34,8 @@ if (process.argv[2] === 'child') {
     // will call .end('end') or .write('write');
     socket[m](m);
 
+    socket.resume();
+
     // store the unfinished socket
     if (m === 'write') {
       endMe = socket;
@@ -42,6 +44,7 @@ if (process.argv[2] === 'child') {
 
   process.on('message', function(m) {
     if (m !== 'close') return;
+    console.error('got close message');
     endMe.end('end');
     endMe = null;
   });
@@ -107,14 +110,17 @@ if (process.argv[2] === 'child') {
 
   var timeElasped = 0;
   var closeServer = function() {
+    console.error('closeServer');
     var startTime = Date.now();
     server.on('close', function() {
+      console.error('emit(close)');
       timeElasped = Date.now() - startTime;
     });
 
     server.close();
 
     setTimeout(function() {
+      console.error('sending close to children');
       child1.send('close');
       child2.send('close');
       child3.disconnect();
