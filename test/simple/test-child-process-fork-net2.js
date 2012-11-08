@@ -27,7 +27,7 @@ var count = 12;
 
 if (process.argv[2] === 'child') {
 
-  var endMe = null;
+  var needEnd = [];
 
   process.on('message', function(m, socket) {
     if (!socket) return;
@@ -49,8 +49,7 @@ if (process.argv[2] === 'child') {
 
     // store the unfinished socket
     if (m === 'write') {
-      endMe = socket;
-      console.error('setting endMe');
+      needEnd.push(socket);
     }
 
     socket.on('close', function() {
@@ -58,33 +57,25 @@ if (process.argv[2] === 'child') {
     });
 
     socket.on('finish', function() {
-      console.error('%d socket finished', process.pid, m, socket === endMe);
+      console.error('%d socket finished', process.pid, m);
     });
   });
 
-  process.on('message', function om(m) {
+  process.on('message', function(m) {
     if (m !== 'close') return;
-    process.removeListener('message', om);
     console.error('got close message');
-    if (endMe) {
-      console.error('%d has endMe', process.pid);
+    needEnd.forEach(function(endMe, i) {
+      console.error('%d ending %d', process.pid, i);
       endMe.end('end');
-    }
-
-    setTimeout(function() {
-      var h = process._getActiveHandles();
-      console.error('%d got end message, active handles=', process.pid, h);
-      h.forEach(function(handle) {
-        if (endMe && (handle === endMe || handle === endMe._handle))
-          console.error('endMe is still active!');
-      });
-    }, 1000).unref();
+    });
   });
 
   process.on('disconnect', function() {
     console.error('%d process disconnect, ending', process.pid);
-    if (endMe)
+    needEnd.forEach(function(endMe, i) {
+      console.error('%d ending %d', process.pid, i);
       endMe.end('end');
+    });
     endMe = null;
   });
 
@@ -129,8 +120,10 @@ if (process.argv[2] === 'child') {
         console.error('CLIENT: close event in master');
         disconnected += 1;
       });
-      setTimeout(client.end.bind(client, 'end'), 200);
-
+      // XXX This resume() should be unnecessary.
+      // a stream high water mark should be enough to keep
+      // consuming the input.
+      client.resume();
     }
   });
 
