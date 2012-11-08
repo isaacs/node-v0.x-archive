@@ -23,6 +23,7 @@ var assert = require('assert');
 var common = require('../common');
 var fork = require('child_process').fork;
 var net = require('net');
+var count = 12;
 
 if (process.argv[2] === 'child') {
 
@@ -31,26 +32,59 @@ if (process.argv[2] === 'child') {
   process.on('message', function(m, socket) {
     if (!socket) return;
 
+    console.error('got socket', m);
+
     // will call .end('end') or .write('write');
     socket[m](m);
 
     socket.resume();
 
+    socket.on('data', function() {
+      console.error('%d socket.data', process.pid, m);
+    });
+
+    socket.on('end', function() {
+      console.error('%d socket.end', process.pid, m);
+    });
+
     // store the unfinished socket
     if (m === 'write') {
       endMe = socket;
+      console.error('setting endMe');
     }
+
+    socket.on('close', function() {
+      console.error('%d socket.close', process.pid, m);
+    });
+
+    socket.on('finish', function() {
+      console.error('%d socket finished', process.pid, m, socket === endMe);
+    });
   });
 
-  process.on('message', function(m) {
+  process.on('message', function om(m) {
     if (m !== 'close') return;
+    process.removeListener('message', om);
     console.error('got close message');
-    endMe.end('end');
-    endMe = null;
+    if (endMe) {
+      console.error('%d has endMe', process.pid);
+      endMe.end('end');
+    }
+
+    setTimeout(function() {
+      var h = process._getActiveHandles();
+      console.error('%d got end message, active handles=', process.pid, h);
+      h.forEach(function(handle) {
+        if (endMe && (handle === endMe || handle === endMe._handle))
+          console.error('endMe is still active!');
+      });
+    }, 1000).unref();
   });
 
   process.on('disconnect', function() {
-    endMe.end('end');
+    console.error('%d process disconnect, ending', process.pid);
+    if (endMe)
+      endMe.end('end');
     endMe = null;
   });
 
@@ -64,7 +98,7 @@ if (process.argv[2] === 'child') {
 
   var connected = 0;
   server.on('connection', function(socket) {
-    switch (connected) {
+    switch (connected % 6) {
       case 0:
         child1.send('end', socket); break;
       case 1:
@@ -80,7 +114,7 @@ if (process.argv[2] === 'child') {
     }
     connected += 1;
 
-    if (connected === 6) {
+    if (connected === count) {
       closeServer();
     }
   });
@@ -88,17 +122,21 @@ if (process.argv[2] === 'child') {
   var disconnected = 0;
   server.on('listening', function() {
 
-    var j = 6, client;
+    var j = count, client;
     while (j--) {
       client = net.connect(common.PORT, '127.0.0.1');
       client.on('close', function() {
+        console.error('CLIENT: close event in master');
         disconnected += 1;
       });
+      setTimeout(client.end.bind(client, 'end'), 200);
+
     }
   });
 
   var closeEmitted = false;
   server.on('close', function() {
+    console.error('server close');
     closeEmitted = true;
 
     child1.kill();
@@ -117,6 +155,7 @@ if (process.argv[2] === 'child') {
       timeElasped = Date.now() - startTime;
     });
 
+    console.error('calling server.close');
     server.close();
 
     setTimeout(function() {
@@ -128,8 +167,8 @@ if (process.argv[2] === 'child') {
   };
 
   process.on('exit', function() {
-    assert.equal(disconnected, 6);
-    assert.equal(connected, 6);
+    assert.equal(disconnected, count);
+    assert.equal(connected, count);
     assert.ok(closeEmitted);
     assert.ok(timeElasped >= 190 && timeElasped <= 1000,
               'timeElasped was not between 190 and 1000 ms');
