@@ -37,7 +37,7 @@ function run() {
 
   var name = next[0];
   var fn = next[1];
-  console.log('# %s', name);
+  console.error('# %s', name);
   fn({
     same: assert.deepEqual,
     equal: assert.equal,
@@ -203,12 +203,14 @@ test('assymetric transform (compress)', function(t) {
 
 test('passthrough event emission', function(t) {
   var pt = new PassThrough({
-    lowWaterMark: 0
+    lowWaterMark: 0,
+    highWaterMark: 0
   });
   var emits = 0;
   pt.on('readable', function() {
     var state = pt._readableState;
-    console.error('>>> emit readable %d', emits);
+    console.error(state);
+    console.error('emit readable ' + emits)
     emits++;
   });
 
@@ -250,7 +252,6 @@ test('passthrough event emission reordered', function(t) {
   var pt = new PassThrough;
   var emits = 0;
   pt.on('readable', function() {
-    console.error('emit readable', emits)
     emits++;
   });
 
@@ -259,24 +260,36 @@ test('passthrough event emission reordered', function(t) {
 
   t.equal(pt.read(5).toString(), 'foogb');
   t.equal(pt.read(5), null);
+  console.error('got null', pt);
 
   console.error('need emit 0');
   pt.once('readable', function() {
-    t.equal(pt.read(5).toString(), 'arkba');
-    t.equal(pt.read(5).toString(), 'zykue');
+    console.error('>>> readable', pt);
+    console.trace('>>> readable');
+    process.nextTick(function() {
+      console.error('>>> readable nt', pt);
+    });
+    return;
+
+    t.equal(pt.read(5) + '', 'arkba');
     t.equal(pt.read(5), null);
 
     console.error('need emit 1');
     pt.once('readable', function() {
-      t.equal(pt.read(5).toString(), 'l');
-      t.equal(pt.read(5), null);
+      t.equal(pt.read(5) + '', 'zykue');
+      pt.once('readable', function() {
+        t.equal(pt.read(5).toString(), 'l');
+        t.equal(pt.read(5), null);
 
-      t.equal(emits, 2);
-      t.end();
+        t.equal(emits, 2);
+        t.end();
+      });
+      pt.end();
     });
-    pt.end();
   });
+  console.error('\n\n\n\nabout to trigger readable...');
   pt.write(new Buffer('bazy'));
+  console.error('^^^^ theres the problem\n\n\n\n\n\n\n');
   pt.write(new Buffer('kuel'));
 });
 
