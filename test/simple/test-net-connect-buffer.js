@@ -92,7 +92,7 @@ tcp.listen(common.PORT, function() {
   // We're still connecting at this point so the datagram is first pushed onto
   // the connect queue. Make sure that it's not added to `bytesWritten` again
   // when the actual write happens.
-  var r = socket.write(a, function() {
+  var r = socket.write(a, function(er) {
     console.error('write cb');
     dataWritten = true;
     assert.ok(connectHappened);
