@@ -649,6 +649,7 @@ void uv__io_stop(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
 
 
 void uv__io_feed(uv_loop_t* loop, uv__io_t* w) {
+  w->pevents |= UV__POLLOUT;
   if (ngx_queue_empty(&w->pending_queue))
     ngx_queue_insert_tail(&loop->pending_queue, &w->pending_queue);
 }
