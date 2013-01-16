@@ -1,4 +1,5 @@
-var types = 'Array Buffer Int8Array Uint8Array Int16Array Uint16Array Int32Array Uint32Array Float32Array Float64Array'.split(' ');
+var types = ('Array Buffer Int8Array Uint8Array Int16Array Uint16Array' +
+             'Int32Array Uint32Array Float32Array Float64Array').split(' ');
 
 var type = types[types.indexOf(process.argv[2])];
 if (!type)

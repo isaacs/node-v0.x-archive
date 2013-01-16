@@ -19,9 +19,38 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-var N = 64*1024*1024
-var b = Buffer(N);
-var s = '';
-for (var i = 0; i < 256; ++i) s += String.fromCharCode(i);
-for (var i = 0; i < N; i += 256) b.write(s, i, 256, 'ascii');
-for (var i = 0; i < 32; ++i) b.toString('base64');
+/* Usage:
+ *
+ * --run: specify which test(s) to run
+ * --len: how many itterations each test should run (default: 1e6)
+ * --type: whether to use a 'fast' or 'slow' buffer (default: fast)
+ *
+ * Example:
+ *
+ *   node buffer_copy.js --run 'fill' --len 1e5 --type slow
+ */
+
+var timer = require('../_bench_timer');
+var parsed = timer.parse(process.argv);
+var Buff = parsed.type == 'slow' ? require('buffer').SlowBuffer : Buffer;
+var LEN = parsed.len || 1e6;
+var buf0 = Buff(1e3);
+var buf1 = Buff(1e3);
+
+buf0.fill(0x61, 0, buf0.length);
+buf1.fill(0x62, 0, buf1.length);
+
+timer('fill', function() {
+  for (var i = 0; i < LEN; i++)
+    buf0.copy(buf1);
+});
+
+timer('fill - seg', function() {
+  for (var i = 0; i < LEN; i++)
+    buf0.copy(buf1, 500);
+});
+
+timer('fill - same', function() {
+  for (var i = 0; i < LEN; i++)
+    buf0.copy(buf0);
+});
