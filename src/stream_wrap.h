@@ -43,6 +43,7 @@ class StreamWrap : public HandleWrap {
   static void Initialize(v8::Handle<v8::Object> target);
 
   // JavaScript functions
+  static v8::Handle<v8::Value> GetFD(const v8::Arguments& args);
   static v8::Handle<v8::Value> ReadStart(const v8::Arguments& args);
   static v8::Handle<v8::Value> ReadStop(const v8::Arguments& args);
   static v8::Handle<v8::Value> Shutdown(const v8::Arguments& args);

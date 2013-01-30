@@ -127,6 +127,17 @@ void StreamWrap::UpdateWriteQueueSize() {
 }
 
 
+Handle<Value> StreamWrap::GetFD(const Arguments& args) {
+  HandleScope scope;
+
+  UNWRAP(StreamWrap)
+
+  int fd = (int)wrap->stream_->fd;
+
+  return scope.Close(Integer::New(fd));
+}
+
+
 Handle<Value> StreamWrap::ReadStart(const Arguments& args) {
   HandleScope scope;
 

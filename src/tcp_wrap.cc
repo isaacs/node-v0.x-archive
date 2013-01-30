@@ -96,6 +96,8 @@ void TCPWrap::Initialize(Handle<Object> target) {
 
   NODE_SET_PROTOTYPE_METHOD(t, "close", HandleWrap::Close);
 
+  NODE_SET_PROTOTYPE_METHOD(t, "getFD", StreamWrap::GetFD);
+
   NODE_SET_PROTOTYPE_METHOD(t, "readStart", StreamWrap::ReadStart);
   NODE_SET_PROTOTYPE_METHOD(t, "readStop", StreamWrap::ReadStop);
   NODE_SET_PROTOTYPE_METHOD(t, "shutdown", StreamWrap::Shutdown);
