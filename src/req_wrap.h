@@ -47,6 +47,8 @@ class ReqWrap {
     if (!domain->IsUndefined()) {
       // fprintf(stderr, "setting domain on ReqWrap\n");
       object_->Set(domain_symbol, domain);
+    } else {
+      object_->Set(domain_symbol, v8::Null());
     }
 
     ngx_queue_insert_tail(&req_wrap_queue, &req_wrap_queue_);

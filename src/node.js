@@ -214,6 +214,24 @@
     return startup._lazyConstants;
   };
 
+
+  // functions to avoid having to do checks that deopt our
+  // hot path functions.
+  function disposedDomain(domain) {
+    return domain && domain._disposed;
+  }
+
+  function enterDomain(domain) {
+    if (domain)
+      domain.enter();
+  }
+
+  function exitDomain(domain) {
+    if (domain)
+      domain.exit();
+  }
+
+
   startup.processFatal = function() {
     // call into the active domain, or emit uncaughtException,
     // and exit if there are no listeners.
@@ -299,11 +317,10 @@
     // Along with EventEmitter.emit, this is the hottest code in node.
     // Everything that comes from C++ into JS passes through here.
     process._makeCallback = function(obj, fn, args) {
-      var domain = obj.domain;
-      if (domain) {
-        if (domain._disposed) return;
-        domain.enter();
-      }
+      if (disposedDomain(obj.domain))
+        return;
+
+      enterDomain(obj.domain);
 
       // I know what you're thinking, why not just use fn.apply
       // Because we hit this function a lot, and really want to make sure
@@ -338,7 +355,7 @@
           break;
       }
 
-      if (domain) domain.exit();
+      exitDomain(obj.domain);
 
       // process the nextTicks after each time we get called.
       process._tickCallback();
@@ -417,10 +434,10 @@
         while (nextTickIndex < nextTickLength) {
           var tock = nextTickQueue[nextTickIndex++];
           var callback = tock.callback;
-          if (tock.domain) {
-            if (tock.domain._disposed) continue;
-            tock.domain.enter();
-          }
+
+          if (disposedDomain(tock.domain)) continue;
+          enterDomain(tock.domain);
+
           var threw = true;
           try {
             callback();
@@ -430,9 +447,8 @@
             // so we can't clear the tickDepth at this point.
             if (threw) tickDone(tickDepth);
           }
-          if (tock.domain) {
-            tock.domain.exit();
-          }
+
+          exitDomain(tock.domain);
         }
         nextTickQueue.splice(0, nextTickIndex);
         nextTickIndex = 0;
@@ -452,12 +468,14 @@
       if (tickDepth >= process.maxTickDepth)
         maxTickWarn();
 
-      var tock = { callback: callback };
-      if (process.domain) tock.domain = process.domain;
-      nextTickQueue.push(tock);
-      if (nextTickQueue.length) {
+      var tock = {
+        callback: callback,
+        domain: process.domain || null
+      };
+      if (nextTickQueue.length === 0) {
         process._needTickCallback();
       }
+      nextTickQueue.push(tock);
     };
   };
 
