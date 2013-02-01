@@ -32,12 +32,6 @@ var file = path.resolve(common.fixturesDir, 'x1024.txt');
 
 var size = fs.statSync(file).size;
 
-// expect to see chunks no more than 10 bytes each.
-var expectLengths = [];
-for (var i = size; i > 0; i -= 10) {
-  expectLengths.push(Math.min(i, 10));
-}
-
 var util = require('util');
 var Stream = require('stream');
 
@@ -60,17 +54,13 @@ TestWriter.prototype.end = function(c) {
   this.emit('results', this.buffer);
 }
 
-var r = new FSReadable(file, { bufferSize: 10 });
+var r = new FSReadable(file, { chunkSize: 10 });
 var w = new TestWriter();
 
 w.on('results', function(res) {
   console.error(res, w.length);
   assert.equal(w.length, size);
-  var l = 0;
-  assert.deepEqual(res.map(function (c) {
-    return c.length;
-  }), expectLengths);
   console.log('ok');
 });
 
-r.pipe(w, { chunkSize: 10 });
+r.pipe(w);
