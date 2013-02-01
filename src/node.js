@@ -317,7 +317,7 @@
     // Everything that comes from C++ into JS passes through here.
     process._makeCallback = function(obj, fn, args) {
       if (domainDisposed(obj.domain)) return;
-      domainEnter(obj.domain)
+      domainEnter(obj.domain);
 
       // I know what you're thinking, why not just use fn.apply
       // Because we hit this function a lot, and really want to make sure
