@@ -298,15 +298,26 @@
     });
   };
 
+  function domainDisposed(domain) {
+    return domain && domain._disposed;
+  }
+
+  function domainEnter(domain) {
+    if (domain)
+      domain.enter();
+  }
+
+  function domainExit(domain) {
+    if (domain)
+      domain.exit();
+  }
+
   startup.processMakeCallback = function() {
     // Along with EventEmitter.emit, this is the hottest code in node.
     // Everything that comes from C++ into JS passes through here.
     process._makeCallback = function(obj, fn, args) {
-      var domain = obj.domain;
-      if (domain) {
-        if (domain._disposed) return;
-        domain.enter();
-      }
+      if (domainDisposed(obj.domain)) return;
+      domainEnter(obj.domain)
 
       // I know what you're thinking, why not just use fn.apply
       // Because we hit this function a lot, and really want to make sure
@@ -341,7 +352,7 @@
           break;
       }
 
-      if (domain) domain.exit();
+      domainExit(obj.domain);
 
       // process the nextTicks after each time we get called.
       process._tickCallback();
