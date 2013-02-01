@@ -38,6 +38,9 @@ using v8::Context;
 using v8::Arguments;
 using v8::Integer;
 
+extern v8::Persistent<v8::String> process_symbol;
+extern v8::Persistent<v8::String> domain_symbol;
+
 static Persistent<String> ontimeout_sym;
 
 class TimerWrap : public HandleWrap {
@@ -76,6 +79,19 @@ class TimerWrap : public HandleWrap {
     HandleScope scope;
     TimerWrap *wrap = new TimerWrap(args.This());
     assert(wrap);
+
+    v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+                                  ->Global()
+                                  ->Get(process_symbol)
+                                  ->ToObject()
+                                  ->Get(domain_symbol);
+
+    if (!domain->IsUndefined()) {
+      // fprintf(stderr, "setting domain on ReqWrap\n");
+      args.This()->Set(domain_symbol, domain);
+    } else {
+      args.This()->Set(domain_symbol, v8::Null());
+    }
 
     return scope.Close(args.This());
   }

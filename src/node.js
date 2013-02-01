@@ -36,6 +36,8 @@
       }
     });
 
+    process.domain = null;
+
     process.EventEmitter = EventEmitter; // process.EventEmitter is deprecated
 
     // do this good and early, since it handles errors.
@@ -710,6 +712,7 @@
         wrap.unref();
 
         wrap.onsignal = function() { process.emit(type); };
+        wrap.domain = process.domain;
 
         var signum = startup.lazyConstants()[type];
         var r = wrap.start(signum);

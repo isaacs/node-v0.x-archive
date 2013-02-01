@@ -56,6 +56,10 @@ static const int X509_NAME_FLAGS = ASN1_STRFLGS_ESC_CTRL
                                  | XN_FLAG_FN_SN;
 
 namespace node {
+
+extern v8::Persistent<v8::String> process_symbol;
+extern v8::Persistent<v8::String> domain_symbol;
+
 namespace crypto {
 
 using namespace v8;
@@ -2007,8 +2011,11 @@ Handle<Value> Connection::SetSNICallback(const Arguments& args) {
   if (!ss->sniObject_.IsEmpty()) {
     ss->sniObject_.Dispose();
   }
+
   ss->sniObject_ = Persistent<Object>::New(Object::New());
   ss->sniObject_->Set(String::New("onselect"), args[0]);
+
+  ss->sniObject_->Set(domain_symbol, args.This()->Get(domain_symbol));
 
   return True(node_isolate);
 }
@@ -3822,6 +3829,19 @@ Handle<Value> PBKDF2(const Arguments& args) {
 
   if (args[4]->IsFunction()) {
     req->obj = Persistent<Object>::New(Object::New());
+
+    v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+                                  ->Global()
+                                  ->Get(process_symbol)
+                                  ->ToObject()
+                                  ->Get(domain_symbol);
+
+    if (!domain->IsUndefined()) {
+      req->obj->Set(domain_symbol, domain);
+    } else {
+      req->obj->Set(domain_symbol, v8::Null());
+    }
+
     req->obj->Set(String::New("ondone"), args[4]);
     uv_queue_work(uv_default_loop(),
                   &req->work_req,
@@ -3942,6 +3962,19 @@ Handle<Value> RandomBytes(const Arguments& args) {
 
   if (args[1]->IsFunction()) {
     req->obj_ = Persistent<Object>::New(Object::New());
+
+    v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+                                  ->Global()
+                                  ->Get(process_symbol)
+                                  ->ToObject()
+                                  ->Get(domain_symbol);
+
+    if (!domain->IsUndefined()) {
+      req->obj_->Set(domain_symbol, domain);
+    } else {
+      req->obj_->Set(domain_symbol, v8::Null());
+    }
+
     req->obj_->Set(String::New("ondone"), args[1]);
 
     uv_queue_work(uv_default_loop(),

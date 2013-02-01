@@ -43,6 +43,8 @@ using v8::Arguments;
 using v8::Integer;
 using v8::Undefined;
 
+extern v8::Persistent<v8::String> process_symbol;
+extern v8::Persistent<v8::String> domain_symbol;
 
 void TTYWrap::Initialize(Handle<Object> target) {
   StreamWrap::Initialize(target);
@@ -177,6 +179,19 @@ Handle<Value> TTYWrap::New(const Arguments& args) {
   TTYWrap* wrap = new TTYWrap(args.This(), fd, args[1]->IsTrue());
   assert(wrap);
   wrap->UpdateWriteQueueSize();
+
+  v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+                                ->Global()
+                                ->Get(process_symbol)
+                                ->ToObject()
+                                ->Get(domain_symbol);
+
+  if (!domain->IsUndefined()) {
+    // fprintf(stderr, "setting domain on ReqWrap\n");
+    args.This()->Set(domain_symbol, domain);
+  } else {
+    args.This()->Set(domain_symbol, v8::Null());
+  }
 
   return scope.Close(args.This());
 }

@@ -40,6 +40,9 @@ typedef ReqWrap<uv_udp_send_t> SendWrap;
 // see tcp_wrap.cc
 Local<Object> AddressToJS(const sockaddr* addr);
 
+extern v8::Persistent<v8::String> process_symbol;
+extern v8::Persistent<v8::String> domain_symbol;
+
 static Persistent<Function> constructor;
 static Persistent<String> buffer_sym;
 static Persistent<String> oncomplete_sym;
@@ -110,6 +113,19 @@ Handle<Value> UDPWrap::New(const Arguments& args) {
 
   assert(args.IsConstructCall());
   new UDPWrap(args.This());
+
+  v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+                                ->Global()
+                                ->Get(process_symbol)
+                                ->ToObject()
+                                ->Get(domain_symbol);
+
+  if (!domain->IsUndefined()) {
+    // fprintf(stderr, "setting domain on ReqWrap\n");
+    args.This()->Set(domain_symbol, domain);
+  } else {
+    args.This()->Set(domain_symbol, v8::Null());
+  }
 
   return scope.Close(args.This());
 }

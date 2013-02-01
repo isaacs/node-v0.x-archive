@@ -49,6 +49,9 @@ using v8::Integer;
 using v8::Exception;
 using v8::ThrowException;
 
+extern v8::Persistent<v8::String> process_symbol;
+extern v8::Persistent<v8::String> domain_symbol;
+
 static Persistent<String> onexit_sym;
 
 class ProcessWrap : public HandleWrap {
@@ -83,6 +86,19 @@ class ProcessWrap : public HandleWrap {
     HandleScope scope;
     ProcessWrap *wrap = new ProcessWrap(args.This());
     assert(wrap);
+
+    v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+                                  ->Global()
+                                  ->Get(process_symbol)
+                                  ->ToObject()
+                                  ->Get(domain_symbol);
+
+    if (!domain->IsUndefined()) {
+      // fprintf(stderr, "setting domain on ReqWrap\n");
+      args.This()->Set(domain_symbol, domain);
+    } else {
+      args.This()->Set(domain_symbol, v8::Null());
+    }
 
     return scope.Close(args.This());
   }

@@ -40,6 +40,9 @@
 
 namespace node {
 
+extern v8::Persistent<v8::String> process_symbol;
+extern v8::Persistent<v8::String> domain_symbol;
+
 namespace cares_wrap {
 
 using v8::Arguments;
@@ -273,6 +276,18 @@ class QueryWrap {
     HandleScope scope;
 
     object_ = Persistent<Object>::New(Object::New());
+
+    v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+                                  ->Global()
+                                  ->Get(process_symbol)
+                                  ->ToObject()
+                                  ->Get(domain_symbol);
+
+    if (!domain->IsUndefined()) {
+      object_->Set(domain_symbol, domain);
+    } else {
+      object_->Set(domain_symbol, v8::Null());
+    }
   }
 
   virtual ~QueryWrap() {

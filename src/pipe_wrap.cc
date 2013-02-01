@@ -45,6 +45,9 @@ using v8::Boolean;
 
 Persistent<Function> pipeConstructor;
 
+extern v8::Persistent<v8::String> process_symbol;
+extern v8::Persistent<v8::String> domain_symbol;
+
 static Persistent<String> onconnection_sym;
 static Persistent<String> oncomplete_sym;
 
@@ -119,6 +122,19 @@ Handle<Value> PipeWrap::New(const Arguments& args) {
   HandleScope scope;
   PipeWrap* wrap = new PipeWrap(args.This(), args[0]->IsTrue());
   assert(wrap);
+
+  v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+                                ->Global()
+                                ->Get(process_symbol)
+                                ->ToObject()
+                                ->Get(domain_symbol);
+
+  if (!domain->IsUndefined()) {
+    // fprintf(stderr, "setting domain on ReqWrap\n");
+    args.This()->Set(domain_symbol, domain);
+  } else {
+    args.This()->Set(domain_symbol, v8::Null());
+  }
 
   return scope.Close(args.This());
 }
