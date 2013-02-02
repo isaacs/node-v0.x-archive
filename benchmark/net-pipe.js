@@ -42,7 +42,6 @@ Writer.prototype.printStats = function() {
   var gbits = bits / (1024 * 1024 * 1024);
   var rate = gbits / elapsed * 1E9;
   rates.push(rate);
-  console.log('%s Gbits/sec (%d bits / %d ns)', rate.toFixed(4), bits, elapsed);
 
   // reset to keep getting instant time.
   this.start = process.hrtime();
@@ -62,11 +61,11 @@ function report() {
   var avg = 0;
   rates.forEach(function(rate) { avg += rate });
   avg /= rates.length;
-  console.error('min:%s avg:%s max:%s median:%s',
-                min.toFixed(2),
-                avg.toFixed(2),
-                max.toFixed(2),
-                median.toFixed(2));
+  console.log('\t%s\t%s\t%s\t%s',
+              min.toFixed(2),
+              avg.toFixed(2),
+              max.toFixed(2),
+              median.toFixed(2));
 }
 
 var len = process.env.LENGTH || 16 * 1024 * 1024;
