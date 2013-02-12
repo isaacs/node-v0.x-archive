@@ -55,6 +55,12 @@ function doTest() {
   var server = tls.createServer(options, function(cleartext) {
     ++requestCount;
     cleartext.end();
+
+    // we expect to get ECONNRESETs in this test.  Just means
+    // that the client dropped off, but they'll reconnect.
+    cleartext.on('error', function(er) {
+      assert(er.code === 'ECONNRESET');
+    });
   });
   server.on('newSession', function(id, data) {
     assert.ok(!session);
