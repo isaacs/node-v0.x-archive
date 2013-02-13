@@ -139,6 +139,13 @@ static uv_idle_t tick_spinner;
 static bool need_tick_cb;
 static Persistent<String> tick_callback_sym;
 
+// for quick ref to tickCallback values
+struct TickInfoData {
+  uint32_t length;
+  uint32_t index;
+  uint32_t depth;
+};
+TickInfoData tick_infobox = { 0, 0, 0 };
 
 #ifdef OPENSSL_NPN_NEGOTIATED
 static bool use_npn = true;
@@ -939,6 +946,12 @@ MCWithDomain(const Handle<Object> object,
     return Undefined(node_isolate);
   }
 
+  if (tick_infobox.length == 0) {
+    tick_infobox.index = 0;
+    tick_infobox.depth = 0;
+    return Undefined(node_isolate);
+  }
+
   // process nextTicks after call
   process_tickWDCallback->Call(process, 0, NULL);
 
@@ -993,6 +1006,12 @@ MakeCallback(const Handle<Object> object,
   if (try_catch.HasCaught()) {
     FatalException(try_catch);
     return Undefined(node_isolate);
+  }
+
+  if (tick_infobox.length == 0) {
+    tick_infobox.index = 0;
+    tick_infobox.depth = 0;
+    return scope.Close(Undefined(node_isolate));
   }
 
   // process nextTicks after call
@@ -2418,6 +2437,13 @@ Handle<Object> SetupProcessObject(int argc, char *argv[]) {
   NODE_SET_METHOD(process, "memoryUsage", MemoryUsage);
 
   NODE_SET_METHOD(process, "binding", Binding);
+
+  // values use to cross communicate with processNextTick
+  Local<Object> info_box = Object::New();
+  info_box->SetIndexedPropertiesToExternalArrayData(&tick_infobox,
+                                                    kExternalUnsignedIntArray,
+                                                    3);
+  process->Set(String::NewSymbol("_tickInfoBox"), info_box);
 
   return process;
 }
