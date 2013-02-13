@@ -60,15 +60,14 @@ function Benchmark(fn, options) {
 }
 
 // run ab against a server.
-Benchmark.prototype.ab = function(path, args, cb) {
+Benchmark.prototype.siege = function(path, args, cb) {
   var url = 'http://127.0.0.1:' + exports.PORT + path;
-  args.push(url);
 
   var self = this;
   var out = '';
   var spawn = require('child_process').spawn;
-  // console.error('ab %s', args.join(' '));
-  var child = spawn('ab', args);
+  // console.error('siege %s', args.join(' '));
+  var child = spawn('siege', args.concat(['-b', '-q', url]));
 
   child.stdout.setEncoding('utf8');
 
@@ -76,19 +75,27 @@ Benchmark.prototype.ab = function(path, args, cb) {
     out += chunk;
   });
 
+  child.stderr.setEncoding('utf8');
+  var err = '';
+  child.stderr.on('data', function(chunk) {
+    err += chunk;
+  });
+
   child.on('close', function(code) {
     if (cb)
       cb(code);
 
     if (code) {
-      console.error('ab failed with ' + code);
-      process.exit(code)
+      console.error('siege failed with ' + code);
+      console.error(err);
+      console.error(out);
+      process.exit(code);
     }
-    var m = out.match(/Requests per second: +([0-9\.]+)/);
+    var m = err.match(/Transaction rate:[ \t]+([0-9\.]+)/);
     var qps = m && +m[1];
     if (!qps) {
-      process.stderr.write(out + '\n');
-      console.error('ab produced strange output');
+      console.error('%j', err);
+      console.error('siege produced strange output');
       process.exit(1);
     }
     self.report(+qps);

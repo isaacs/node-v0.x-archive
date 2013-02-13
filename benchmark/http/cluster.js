@@ -26,9 +26,9 @@ function main(conf) {
 
     setTimeout(function() {
       var path = '/' + conf.type + '/' + conf.length;
-      var args = ['-r', '-t', 5, '-c', conf.c, '-k'];
+      var args = ['-t', '5S', '-c', conf.c];
 
-      bench.ab(path, args, function() {
+      bench.siege(path, args, function() {
         w1.destroy();
         w2.destroy();
       });
