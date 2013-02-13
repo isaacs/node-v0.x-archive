@@ -3,6 +3,7 @@ var usage = 'node benchmark/compare.js <node-binary1> <node-binary2> [--html] [-
 var show = 'both';
 var nodes = [];
 var html = false;
+var accumOnly = false;
 
 for (var i = 2; i < process.argv.length; i++) {
   var arg = process.argv[i];
@@ -15,6 +16,9 @@ for (var i = 2; i < process.argv.length; i++) {
       break;
     case '--html':
       html = true;
+      break;
+    case '--accum':
+      accumOnly = true;
       break;
     case '-h': case '-?': case '--help':
       console.log(usage);
@@ -105,6 +109,38 @@ function compare() {
   var util = require('util');
   console.log(start);
 
+  var acc = { accum: true };
+  acc[nodes[0]] = 0;
+  acc[nodes[1]] = 0;
+  var cur = null;
+  results = Object.keys(results).concat(null).reduce(function(set, key) {
+    if (key !== null) {
+      var val = results[key];
+      var file = key.split(' ')[0];
+    } else {
+      val = {};
+      val[nodes[0]] = 0;
+      val[nodes[1]] = 0;
+    }
+    if (key !== null && (cur === null || cur === file)) {
+      acc[nodes[0]] += val[nodes[0]];
+      acc[nodes[1]] += val[nodes[1]];
+      cur = file;
+    } else {
+      acc[nodes[0]] = +acc[nodes[0]].toPrecision(5);
+      acc[nodes[1]] = +acc[nodes[1]].toPrecision(5);
+      set[cur] = acc;
+      acc = { accum: true };
+      acc[nodes[0]] = val[0];
+      acc[nodes[1]] = val[1];
+      cur = file;
+    }
+    if (key !== null) set[key] = val;
+    return set;
+  }, {});
+
+  console.error(results);
+
 	Object.keys(results).map(function(bench) {
     var res = results[bench];
     var n0 = res[nodes[0]];
@@ -114,25 +150,39 @@ function compare() {
 
     var g = n0 > n1 ? green : '';
     var r = n0 > n1 ? '' : red;
+    var lineStart = '';
+    var lineEnd = '';
+    var rst = reset;
     var c = r || g;
+    if (res.accum) {
+      lineStart = c;
+      lineEnd = reset;
+      c = r = g = '';
+      rst = '';
+    } else if (accumOnly)
+      return;
 
     if (show === 'green' && !g || show === 'red' && !r)
       return;
 
-    var r0 = util.format('%s%s: %d%s', g, nodes[0], n0, reset);
-    var r1 = util.format('%s%s: %d%s', r, nodes[1], n1, reset);
-    var pct = c + pct + '%' + reset;
+    var r0 = util.format('%s%s: %d%s', g, nodes[0], n0, rst);
+    var r1 = util.format('%s%s: %d%s', r, nodes[1], n1, rst);
+    var pct = c + pct + '%' + rst;
     var l = util.format('%s: %s %s', bench, r0, r1);
-    maxLen = Math.max(l.length + pct.length, maxLen);
-    return [l, pct];
+    var lineLength = l.length + pct.length + lineStart.length + lineEnd.length;
+    maxLen = Math.max(lineLength, maxLen);
+    return [l, pct, lineStart, lineEnd];
   }).filter(function(l) {
     return l;
   }).forEach(function(line) {
     var l = line[0];
     var pct = line[1];
-    var dotLen = maxLen - l.length - pct.length + 2;
+    var lineStart = line[2];
+    var lineEnd = line[3];
+    var lineLength = l.length + pct.length + lineStart.length + lineEnd.length;
+    var dotLen = maxLen - lineLength + 2;
     var dots = ' ' + new Array(Math.max(0, dotLen)).join('.') + ' ';
-    console.log(l + dots + pct);
+    console.log(lineStart + l + dots + pct + lineEnd);
   });
   console.log(end);
 }
