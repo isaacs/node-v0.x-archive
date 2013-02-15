@@ -1,5 +1,7 @@
 var assert = require('assert');
 var path = require('path');
+var benchCount = +process.env.NODE_BENCH_COUNT || 5;
+benchCount = Math.max(3, benchCount);
 
 exports.PORT = process.env.PORT || 12346;
 
@@ -26,18 +28,64 @@ if (module === require.main) {
     if (test.match(/^[\._]/))
       return process.nextTick(runBenchmarks);
 
-    console.error(type + '/' + test);
-    test = path.resolve(dir, test);
+    runBenchmark(test, []);
+  }
 
-    var child = spawn(process.execPath, [ test ], { stdio: 'inherit' });
+  function runBenchmark(test, res) {
+    if (res.length === benchCount)
+      return parseResults(test, res);
+
+    console.error(type + '/' + test, res.length);
+    var testFile = path.resolve(dir, test);
+
+    var child = spawn(process.execPath, [ testFile ], {
+      stdio: [ 'pipe', 'pipe', 2 ]
+    });
+
+    var out = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', function(c) {
+      out += c;
+    });
+
     child.on('close', function(code) {
       if (code)
         process.exit(code);
       else {
-        console.log('');
-        runBenchmarks();
+        res.push(out);
+        runBenchmark(test, res);
       }
     });
+  }
+
+  function parseResults(test, results) {
+    var results = results.map(function(out) {
+      // parse `foo: 1234\nbar:123` into `{foo:1234,bar:123}`
+      return out.trim().split(/\n/).reduce(function(set, line) {
+        var kv = line.trim().split(':');
+        var val = kv.pop();
+        var key = kv.join(':');
+        set[key] = +val;
+        return set;
+      }, {});
+    }).reduce(function(set, res) {
+      Object.keys(res).forEach(function(k) {
+        set[k] = set[k] || [];
+        set[k].push(res[k]);
+      });
+      return set;
+    }, {});
+    Object.keys(results).forEach(function(k) {
+      var list = results[k];
+      list.sort();
+      list.pop();
+      list.shift();
+      var len = list.length;
+      var n = list.reduce(function(a, b) { return a + b; }) / len;
+      console.log('%s: %s', k, n.toPrecision(5));
+    });
+    // console.log(results);
+    runBenchmarks();
   }
 }
 
