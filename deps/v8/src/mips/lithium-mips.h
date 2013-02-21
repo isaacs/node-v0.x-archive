@@ -93,6 +93,7 @@ class LCodeGen;
   V(Deoptimize)                                 \
   V(DivI)                                       \
   V(DoubleToI)                                  \
+  V(DummyUse)                                   \
   V(ElementsKind)                               \
   V(FastLiteral)                                \
   V(FixedArrayBaseLength)                       \
@@ -135,6 +136,7 @@ class LCodeGen;
   V(MathMinMax)                                 \
   V(ModI)                                       \
   V(MulI)                                       \
+  V(MultiplyAddD)                               \
   V(NumberTagD)                                 \
   V(NumberTagI)                                 \
   V(NumberTagU)                                 \
@@ -250,6 +252,11 @@ class LInstruction: public ZoneObject {
   virtual void SetDeferredLazyDeoptimizationEnvironment(LEnvironment* env) { }
 
   void MarkAsCall() { is_call_ = true; }
+
+  // Interface to the register allocator and iterators.
+  bool ClobbersTemps() const { return is_call_; }
+  bool ClobbersRegisters() const { return is_call_; }
+  bool ClobbersDoubleRegisters() const { return is_call_; }
 
   // Interface to the register allocator and iterators.
   bool IsMarkedAsCall() const { return is_call_; }
@@ -392,6 +399,15 @@ class LLazyBailout: public LTemplateInstruction<0, 0, 0> {
 
  private:
   int gap_instructions_size_;
+};
+
+
+class LDummyUse: public LTemplateInstruction<1, 1, 0> {
+ public:
+  explicit LDummyUse(LOperand* value) {
+    inputs_[0] = value;
+  }
+  DECLARE_CONCRETE_INSTRUCTION(DummyUse, "dummy-use")
 };
 
 
@@ -600,6 +616,24 @@ class LMulI: public LTemplateInstruction<1, 2, 1> {
 
   DECLARE_CONCRETE_INSTRUCTION(MulI, "mul-i")
   DECLARE_HYDROGEN_ACCESSOR(Mul)
+};
+
+
+// Instruction for computing multiplier * multiplicand + addend.
+class LMultiplyAddD: public LTemplateInstruction<1, 3, 0> {
+ public:
+  LMultiplyAddD(LOperand* addend, LOperand* multiplier,
+                LOperand* multiplicand) {
+    inputs_[0] = addend;
+    inputs_[1] = multiplier;
+    inputs_[2] = multiplicand;
+  }
+
+  LOperand* addend() { return inputs_[0]; }
+  LOperand* multiplier() { return inputs_[1]; }
+  LOperand* multiplicand() { return inputs_[2]; }
+
+  DECLARE_CONCRETE_INSTRUCTION(MultiplyAddD, "multiply-add-d")
 };
 
 
@@ -1984,6 +2018,8 @@ class LTransitionElementsKind: public LTemplateInstruction<1, 1, 2> {
 
   Handle<Map> original_map() { return hydrogen()->original_map(); }
   Handle<Map> transitioned_map() { return hydrogen()->transitioned_map(); }
+  ElementsKind from_kind() { return hydrogen()->from_kind(); }
+  ElementsKind to_kind() { return hydrogen()->to_kind(); }
 };
 
 
@@ -2096,8 +2132,10 @@ class LCheckPrototypeMaps: public LTemplateInstruction<1, 0, 2> {
   DECLARE_CONCRETE_INSTRUCTION(CheckPrototypeMaps, "check-prototype-maps")
   DECLARE_HYDROGEN_ACCESSOR(CheckPrototypeMaps)
 
-  Handle<JSObject> prototype() const { return hydrogen()->prototype(); }
-  Handle<JSObject> holder() const { return hydrogen()->holder(); }
+  ZoneList<Handle<JSObject> >* prototypes() const {
+    return hydrogen()->prototypes();
+  }
+  ZoneList<Handle<Map> >* maps() const { return hydrogen()->maps(); }
 };
 
 
@@ -2304,8 +2342,9 @@ class LOsrEntry: public LTemplateInstruction<0, 0, 0> {
   // slot, i.e., that must also be restored to the spill slot on OSR entry.
   // NULL if the register has no assigned spill slot.  Indexed by allocation
   // index.
-  LOperand* register_spills_[Register::kNumAllocatableRegisters];
-  LOperand* double_register_spills_[DoubleRegister::kNumAllocatableRegisters];
+  LOperand* register_spills_[Register::kMaxNumAllocatableRegisters];
+  LOperand* double_register_spills_[
+      DoubleRegister::kMaxNumAllocatableRegisters];
 };
 
 
@@ -2426,6 +2465,8 @@ class LChunkBuilder BASE_EMBEDDED {
 #define DECLARE_DO(type) LInstruction* Do##type(H##type* node);
   HYDROGEN_CONCRETE_INSTRUCTION_LIST(DECLARE_DO)
 #undef DECLARE_DO
+
+  LInstruction* DoMultiplyAdd(HMul* mul, HValue* addend);
 
  private:
   enum Status {

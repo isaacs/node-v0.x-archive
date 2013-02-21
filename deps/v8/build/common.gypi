@@ -51,6 +51,13 @@
     'v8_can_use_vfp2_instructions%': 'false',
     'v8_can_use_vfp3_instructions%': 'false',
 
+    # Setting 'v8_can_use_vfp32dregs' to 'true' will cause V8 to use the VFP
+    # registers d16-d31 in the generated code, both in the snapshot and for the
+    # ARM target. Leaving the default value of 'false' will avoid the use of
+    # these registers in the snapshot and use CPU feature probing when running
+    # on the target.
+    'v8_can_use_vfp32dregs%': 'false',
+
     # Similar to vfp but on MIPS.
     'v8_can_use_fpu_instructions%': 'true',
 
@@ -66,7 +73,11 @@
     # Default arch variant for MIPS.
     'mips_arch_variant%': 'mips32r2',
 
+    'v8_enable_latin_1%': 0,
+
     'v8_enable_debugger_support%': 1,
+
+    'v8_enable_backtrace%': 0,
 
     'v8_enable_disassembler%': 0,
 
@@ -88,7 +99,6 @@
 
     'v8_use_snapshot%': 'true',
     'host_os%': '<(OS)',
-    'v8_use_liveobjectlist%': 'false',
     'werror%': '-Werror',
 
     # With post mortem support enabled, metadata is embedded into libv8 that
@@ -105,6 +115,9 @@
   },
   'target_defaults': {
     'conditions': [
+      ['v8_enable_latin_1==1', {
+        'defines': ['ENABLE_LATIN_1',],
+      }],
       ['v8_enable_debugger_support==1', {
         'defines': ['ENABLE_DEBUGGER_SUPPORT',],
       }],
@@ -170,6 +183,11 @@
           }, {
             'defines': [
               'USE_EABI_HARDFLOAT=0',
+            ],
+          }],
+          [ 'v8_can_use_vfp32dregs=="true"', {
+            'defines': [
+              'CAN_USE_VFP32DREGS',
             ],
           }],
         ],
@@ -250,14 +268,6 @@
         },
         'msvs_configuration_platform': 'x64',
       }],  # v8_target_arch=="x64"
-      ['v8_use_liveobjectlist=="true"', {
-        'defines': [
-          'ENABLE_DEBUGGER_SUPPORT',
-          'INSPECTOR',
-          'OBJECT_PRINT',
-          'LIVEOBJECTLIST',
-        ],
-      }],
       ['v8_compress_startup_data=="bz2"', {
         'defines': [
           'COMPRESS_STARTUP_DATA_BZ2',
@@ -368,6 +378,10 @@
             'cflags': [ '-Wall', '<(werror)', '-W', '-Wno-unused-parameter',
                         '-Wnon-virtual-dtor', '-Woverloaded-virtual' ],
           }],
+          ['OS=="linux" and v8_enable_backtrace==1', {
+            # Support for backtrace_symbols.
+            'ldflags': [ '-rdynamic' ],
+          }],
           ['OS=="android"', {
             'variables': {
               'android_full_debug%': 1,
@@ -399,6 +413,15 @@
           }],
           ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="netbsd" \
             or OS=="android"', {
+            'cflags!': [
+              '-O2',
+              '-Os',
+            ],
+            'cflags': [
+              '-fdata-sections',
+              '-ffunction-sections',
+              '-O3',
+            ],
             'conditions': [
               [ 'gcc_version==44 and clang==0', {
                 'cflags': [
