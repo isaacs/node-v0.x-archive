@@ -213,6 +213,8 @@ INLINE(void CopyChars(sinkchar* dest, const sourcechar* src, int chars));
 
 template<typename sourcechar, typename sinkchar>
 void CopyChars(sinkchar* dest, const sourcechar* src, int chars) {
+  ASSERT(chars >= 0);
+  if (chars == 0) return;
   ASSERT(sizeof(sourcechar) <= 2);
   ASSERT(sizeof(sinkchar) <= 2);
   if (sizeof(sinkchar) == 1) {
