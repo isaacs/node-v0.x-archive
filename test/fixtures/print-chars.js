@@ -29,4 +29,4 @@ for (var i = 0; i < n; i++) {
   s += 'c';
 }
 
-process.stdout.write(s);
+process.stdout.write(s, 'ascii');
