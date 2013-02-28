@@ -43,6 +43,7 @@ r._read = function(n, cb) {
     var ret = r.push(str);
     assert.equal(ret, false);
     reads++;
+    cb(null, '');
   } else {
     assert(!eofed);
     eofed = true;

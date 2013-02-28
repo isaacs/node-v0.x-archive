@@ -37,8 +37,10 @@ var stream = new Readable({
 });
 
 var source = new EE;
+stream._readCb = null;
 
-stream._read = function() {
+stream._read = function(n, cb) {
+  stream._readCb = cb;
   console.error('stream._read');
   readStart();
 };
@@ -50,6 +52,9 @@ stream.on('end', function() {
 
 source.on('data', function(chunk) {
   var ret = stream.push(chunk);
+  if (stream._readCb) stream._readCb(null, '');
+  stream._readCb = null;
+
   console.error('data', stream._readableState.length);
   if (!ret)
     readStop();
