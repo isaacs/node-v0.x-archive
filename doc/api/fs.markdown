@@ -415,7 +415,6 @@ Synchronous version of `fs.read`. Returns the number of `bytesRead`.
 * `filename` {String}
 * `options` {Object}
   * `encoding` {String | Null} default = `null`
-  * `mode` {Number} default = `438` (aka `0666` in Octal)
   * `flag` {String} default = `'r'`
 
 Asynchronously reads the entire contents of a file. Example:
