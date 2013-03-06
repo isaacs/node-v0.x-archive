@@ -261,9 +261,12 @@ static const char* AresErrnoString(int errorno) {
 
 static void SetAresErrno(int errorno) {
   HandleScope scope;
-  Handle<Value> key = String::NewSymbol("errno");
-  Handle<Value> value = String::NewSymbol(AresErrnoString(errorno));
-  Context::GetCurrent()->Global()->Set(key, value);
+  Local<Value> key = String::NewSymbol("_errno");
+  Local<Value> value = String::NewSymbol(AresErrnoString(errorno));
+  Local<Value> process_symbol = String::NewSymbol("process");
+  Local<Object> global = Context::GetCurrent()->Global();
+  Local<Object> process = global->Get(process_symbol).As<Object>();
+  process->Set(key, value);
 }
 
 
