@@ -27,6 +27,7 @@
 #include "node_buffer.h"
 #include "node_root_certs.h"
 
+#include <limits.h> // INT_MAX
 #include <string.h>
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
@@ -56,6 +57,13 @@ static const int X509_NAME_FLAGS = ASN1_STRFLGS_ESC_CTRL
                                  | XN_FLAG_FN_SN;
 
 namespace node {
+
+enum WriteEncoding {
+  kAscii,
+  kUtf8,
+  kUcs2
+};
+
 namespace crypto {
 
 using namespace v8;
@@ -2772,6 +2780,46 @@ class Hmac : public ObjectWrap {
 };
 
 
+template <WriteEncoding encoding>
+size_t GetStorageSize(Handle<String> string) {
+  // Compute the size of the storage that the string will be flattened into.
+  size_t storage_size;
+  switch (encoding) {
+    case kAscii:
+      storage_size = string->Length();
+      break;
+
+    case kUtf8:
+      if (!(string->MayContainNonAscii())) {
+        // If the string has only ascii characters, we know exactly how big
+        // the storage should be.
+        storage_size = string->Length();
+      } else if (string->Length() < 65536) {
+        // A single UCS2 codepoint never takes up more than 3 utf8 bytes.
+        // Unless the string is really long we just allocate so much space that
+        // we're certain the string fits in there entirely.
+        // TODO: maybe check handle->write_queue_size instead of string length?
+        storage_size = 3 * string->Length();
+      } else {
+        // The string is really long. Compute the allocation size that we
+        // actually need.
+        storage_size = string->Utf8Length();
+      }
+      break;
+
+    case kUcs2:
+      storage_size = string->Length() * sizeof(uint16_t);
+      break;
+
+    default:
+      // Unreachable.
+      assert(0);
+  }
+
+  return storage_size;
+}
+
+
 class Hash : public ObjectWrap {
  public:
   static void Initialize (v8::Handle<v8::Object> target) {
@@ -2782,6 +2830,9 @@ class Hash : public ObjectWrap {
     t->InstanceTemplate()->SetInternalFieldCount(1);
 
     NODE_SET_PROTOTYPE_METHOD(t, "update", HashUpdate);
+    NODE_SET_PROTOTYPE_METHOD(t, "updateUtf8String", HashUpdateUtf8String);
+    NODE_SET_PROTOTYPE_METHOD(t, "updateUcs2String", HashUpdateUcs2String);
+    NODE_SET_PROTOTYPE_METHOD(t, "updateAsciiString", HashUpdateAsciiString);
     NODE_SET_PROTOTYPE_METHOD(t, "digest", HashDigest);
 
     target->Set(String::NewSymbol("Hash"), t->GetFunction());
@@ -2823,6 +2874,74 @@ class Hash : public ObjectWrap {
     }
 
     hash->Wrap(args.This());
+    return args.This();
+  }
+
+  static Handle<Value> HashUpdateAsciiString(const Arguments& args) {
+    return Hash::HashUpdateStringImpl<kAscii>(args);
+  }
+
+  static Handle<Value> HashUpdateUtf8String(const Arguments& args) {
+    return Hash::HashUpdateStringImpl<kUtf8>(args);
+  }
+
+  static Handle<Value> HashUpdateUcs2String(const Arguments& args) {
+    return Hash::HashUpdateStringImpl<kUcs2>(args);
+  }
+
+  template <WriteEncoding encoding>
+  static Handle<Value> HashUpdateStringImpl(const Arguments& args) {
+    HandleScope scope;
+    int r;
+
+    if (args.Length() < 1)
+      return ThrowTypeError("Not enough arguments");
+
+    Local<String> string = args[0]->ToString();
+    size_t storage_size = GetStorageSize<encoding>(string);
+
+    if (storage_size > INT_MAX) {
+      Local<Value> exception = Exception::TypeError(String::New("HashUpdate fail"));
+      return ThrowException(exception);
+    }
+
+    char* storage = new char[storage_size + 15];
+    char* data = storage;
+    size_t data_size;
+    switch (encoding) {
+      case kAscii:
+        data_size = string->WriteAscii(data, 0, -1,
+            String::NO_NULL_TERMINATION | String::HINT_MANY_WRITES_EXPECTED);
+        break;
+
+      case kUtf8:
+        data_size = string->WriteUtf8(data, -1, NULL,
+            String::NO_NULL_TERMINATION | String::HINT_MANY_WRITES_EXPECTED);
+        break;
+
+      case kUcs2: {
+        int chars_copied = string->Write((uint16_t*) data, 0, -1,
+            String::NO_NULL_TERMINATION | String::HINT_MANY_WRITES_EXPECTED);
+        data_size = chars_copied * sizeof(uint16_t);
+        break;
+      }
+
+      default:
+        // Unreachable
+        assert(0);
+    }
+    assert(data_size <= storage_size);
+
+    Hash *hash = ObjectWrap::Unwrap<Hash>(args.This());
+    r = hash->HashUpdate(data, data_size);
+
+    delete[] storage;
+
+    if (!r) {
+      Local<Value> exception = Exception::TypeError(String::New("HashUpdate fail"));
+      return ThrowException(exception);
+    }
+
     return args.This();
   }
 
