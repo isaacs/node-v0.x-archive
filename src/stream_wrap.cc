@@ -19,6 +19,9 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#include <stdlib.h>  // abort()
+#include <limits.h>  // INT_MAX
+
 #include "node.h"
 #include "node_buffer.h"
 #include "handle_wrap.h"
@@ -29,9 +32,6 @@
 #include "req_wrap.h"
 #include "udp_wrap.h"
 #include "node_counters.h"
-
-#include <stdlib.h> // abort()
-#include <limits.h> // INT_MAX
 
 #define SLAB_SIZE (1024 * 1024)
 
@@ -68,8 +68,12 @@ class WriteWrap: public ReqWrap<uv_write_t> {
  protected:
   // People should not be using the non-placement new and delete operator on a
   // WriteWrap. Ensure this never happens.
-  void* operator new (size_t size) { assert(0); };
-  void operator delete(void* ptr) { assert(0); };
+  void* operator new(size_t size) {
+    assert(0);
+  };
+  void operator delete(void* ptr) {
+    assert(0);
+  };
 };
 
 
@@ -83,7 +87,7 @@ static SlabAllocator* slab_allocator;
 static bool initialized;
 
 
-static void DeleteSlabAllocator(void*) {
+static void DeleteSlabAllocator(void* p) {
   delete slab_allocator;
   slab_allocator = NULL;
 }
@@ -109,7 +113,7 @@ void StreamWrap::Initialize(Handle<Object> target) {
 
 
 StreamWrap::StreamWrap(Handle<Object> object, uv_stream_t* stream)
-    : HandleWrap(object, (uv_handle_t*)stream) {
+    : HandleWrap(object, reinterpret_cast<uv_handle_t*>(stream)) {
   stream_ = stream;
   if (stream) {
     stream->data = this;
@@ -150,7 +154,7 @@ Handle<Value> StreamWrap::ReadStart(const Arguments& args) {
   UNWRAP(StreamWrap)
 
   bool ipc_pipe = wrap->stream_->type == UV_NAMED_PIPE &&
-                  ((uv_pipe_t*)wrap->stream_)->ipc;
+                  (reinterpret_cast<uv_pipe_t*>(wrap->stream_))->ipc;
   int r;
   if (ipc_pipe) {
     r = uv_read2_start(wrap->stream_, OnAlloc, OnRead2);
@@ -331,7 +335,7 @@ Handle<Value> StreamWrap::WriteBuffer(const Arguments& args) {
 }
 
 
-template <WriteEncoding encoding>
+template <StringEncoding encoding>
 Handle<Value> StreamWrap::WriteStringImpl(const Arguments& args) {
   HandleScope scope;
   int r;
@@ -344,38 +348,7 @@ Handle<Value> StreamWrap::WriteStringImpl(const Arguments& args) {
   Local<String> string = args[0]->ToString();
 
   // Compute the size of the storage that the string will be flattened into.
-  size_t storage_size;
-  switch (encoding) {
-    case kAscii:
-      storage_size = string->Length();
-      break;
-
-    case kUtf8:
-      if (!(string->MayContainNonAscii())) {
-        // If the string has only ascii characters, we know exactly how big
-        // the storage should be.
-        storage_size = string->Length();
-      } else if (string->Length() < 65536) {
-        // A single UCS2 codepoint never takes up more than 3 utf8 bytes.
-        // Unless the string is really long we just allocate so much space that
-        // we're certain the string fits in there entirely.
-        // TODO: maybe check handle->write_queue_size instead of string length?
-        storage_size = 3 * string->Length();
-      } else {
-        // The string is really long. Compute the allocation size that we
-        // actually need.
-        storage_size = string->Utf8Length();
-      }
-      break;
-
-    case kUcs2:
-      storage_size = string->Length() * sizeof(uint16_t);
-      break;
-
-    default:
-      // Unreachable.
-      assert(0);
-  }
+  size_t storage_size = StringBytes::GetSize(string, encoding);
 
   if (storage_size > INT_MAX) {
     uv_err_t err;
@@ -384,34 +357,12 @@ Handle<Value> StreamWrap::WriteStringImpl(const Arguments& args) {
     return scope.Close(v8::Null());
   }
 
-  char* storage = new char[sizeof(WriteWrap) + storage_size + 15];
+  size_t string_offset = ROUND_UP(sizeof(WriteWrap), 16);
+  char* storage = new char[string_offset + storage_size];
   WriteWrap* req_wrap = new (storage) WriteWrap();
 
-  char* data = reinterpret_cast<char*>(ROUND_UP(
-      reinterpret_cast<uintptr_t>(storage) + sizeof(WriteWrap), 16));
-  size_t data_size;
-  switch (encoding) {
-  case kAscii:
-      data_size = string->WriteAscii(data, 0, -1,
-          String::NO_NULL_TERMINATION | String::HINT_MANY_WRITES_EXPECTED);
-      break;
-
-    case kUtf8:
-      data_size = string->WriteUtf8(data, -1, NULL,
-          String::NO_NULL_TERMINATION | String::HINT_MANY_WRITES_EXPECTED);
-      break;
-
-    case kUcs2: {
-      int chars_copied = string->Write((uint16_t*) data, 0, -1,
-          String::NO_NULL_TERMINATION | String::HINT_MANY_WRITES_EXPECTED);
-      data_size = chars_copied * sizeof(uint16_t);
-      break;
-    }
-
-    default:
-      // Unreachable
-      assert(0);
-  }
+  char* data = storage + string_offset;
+  size_t data_size = StringBytes::Write(string, encoding, data);
 
   assert(data_size <= storage_size);
 
@@ -420,7 +371,7 @@ Handle<Value> StreamWrap::WriteStringImpl(const Arguments& args) {
   buf.len = data_size;
 
   bool ipc_pipe = wrap->stream_->type == UV_NAMED_PIPE &&
-                  ((uv_pipe_t*)wrap->stream_)->ipc;
+                  (reinterpret_cast<uv_pipe_t*>(wrap->stream_))->ipc;
 
   if (!ipc_pipe) {
     r = uv_write(&req_wrap->req_,
@@ -494,8 +445,8 @@ Handle<Value> StreamWrap::WriteUcs2String(const Arguments& args) {
 
 
 void StreamWrap::AfterWrite(uv_write_t* req, int status) {
-  WriteWrap* req_wrap = (WriteWrap*) req->data;
-  StreamWrap* wrap = (StreamWrap*) req->handle->data;
+  WriteWrap* req_wrap = reinterpret_cast<WriteWrap*>(req->data);
+  StreamWrap* wrap = reinterpret_cast<StreamWrap*>(req->handle->data);
 
   HandleScope scope;
 
@@ -549,8 +500,9 @@ Handle<Value> StreamWrap::Shutdown(const Arguments& args) {
 
 
 void StreamWrap::AfterShutdown(uv_shutdown_t* req, int status) {
-  ReqWrap<uv_shutdown_t>* req_wrap = (ReqWrap<uv_shutdown_t>*) req->data;
-  StreamWrap* wrap = (StreamWrap*) req->handle->data;
+  ReqWrap<uv_shutdown_t>* req_wrap =
+      reinterpret_cast< ReqWrap<uv_shutdown_t>* >(req->data);
+  StreamWrap* wrap = reinterpret_cast<StreamWrap*>(req->handle->data);
 
   // The wrap and request objects should still be there.
   assert(req_wrap->object_.IsEmpty() == false);
@@ -572,6 +524,4 @@ void StreamWrap::AfterShutdown(uv_shutdown_t* req, int status) {
 
   delete req_wrap;
 }
-
-
 }
