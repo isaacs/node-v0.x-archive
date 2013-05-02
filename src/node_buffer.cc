@@ -192,73 +192,47 @@ void Buffer::Replace(char *data, size_t length,
   handle_->Set(length_symbol, Integer::NewFromUnsigned(length_));
 }
 
-
-Handle<Value> Buffer::BinarySlice(const Arguments &args) {
+template <encoding encoding>
+Handle<Value> Buffer::StringSlice(const Arguments &args) {
   HandleScope scope;
   Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
   SLICE_ARGS(args[0], args[1])
 
   char* src = parent->data_ + start;
   size_t slen = (end - start);
-  return scope.Close(StringBytes::Encode(src, slen, BINARY));
+  return scope.Close(StringBytes::Encode(src, slen, encoding));
+}
+
+
+Handle<Value> Buffer::BinarySlice(const Arguments &args) {
+  return Buffer::StringSlice<BINARY>(args);
 }
 
 
 Handle<Value> Buffer::AsciiSlice(const Arguments &args) {
-  HandleScope scope;
-  Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
-  SLICE_ARGS(args[0], args[1])
-
-  char* src = parent->data_ + start;
-  size_t slen = (end - start);
-  return scope.Close(StringBytes::Encode(src, slen, ASCII));
+  return Buffer::StringSlice<ASCII>(args);
 }
 
 
 Handle<Value> Buffer::Utf8Slice(const Arguments &args) {
-  HandleScope scope;
-  Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
-  SLICE_ARGS(args[0], args[1])
-
-  char* src = parent->data_ + start;
-  size_t slen = (end - start);
-  return scope.Close(StringBytes::Encode(src, slen, UTF8));
+  return Buffer::StringSlice<UTF8>(args);
 }
 
 
 Handle<Value> Buffer::Ucs2Slice(const Arguments &args) {
-  HandleScope scope;
-  Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
-  SLICE_ARGS(args[0], args[1])
-
-  char* src = parent->data_ + start;
-  size_t slen = (end - start);
-  return scope.Close(StringBytes::Encode(src, slen, UCS2));
+  return Buffer::StringSlice<UCS2>(args);
 }
 
 
 
 Handle<Value> Buffer::HexSlice(const Arguments &args) {
-  HandleScope scope;
-  Buffer* parent = ObjectWrap::Unwrap<Buffer>(args.This());
-  SLICE_ARGS(args[0], args[1])
-
-  char* src = parent->data_ + start;
-  size_t slen = (end - start);
-  return scope.Close(StringBytes::Encode(src, slen, HEX));
+  return Buffer::StringSlice<HEX>(args);
 }
 
 
 
 Handle<Value> Buffer::Base64Slice(const Arguments &args) {
-  HandleScope scope;
-  Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
-  SLICE_ARGS(args[0], args[1])
-
-  size_t slen = end - start;
-  const char* src = parent->data_ + start;
-
-  return scope.Close(StringBytes::Encode(src, slen, BASE64));
+  return Buffer::StringSlice<BASE64>(args);
 }
 
 
@@ -662,15 +636,13 @@ void Buffer::Initialize(Handle<Object> target) {
   constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
   constructor_template->SetClassName(String::NewSymbol("SlowBuffer"));
 
-  // copy free
   NODE_SET_PROTOTYPE_METHOD(constructor_template, "binarySlice", Buffer::BinarySlice);
   NODE_SET_PROTOTYPE_METHOD(constructor_template, "asciiSlice", Buffer::AsciiSlice);
   NODE_SET_PROTOTYPE_METHOD(constructor_template, "base64Slice", Buffer::Base64Slice);
   NODE_SET_PROTOTYPE_METHOD(constructor_template, "ucs2Slice", Buffer::Ucs2Slice);
   NODE_SET_PROTOTYPE_METHOD(constructor_template, "hexSlice", Buffer::HexSlice);
-  // TODO NODE_SET_PROTOTYPE_METHOD(t, "utf16Slice", Utf16Slice);
-  // copy
   NODE_SET_PROTOTYPE_METHOD(constructor_template, "utf8Slice", Buffer::Utf8Slice);
+  // TODO NODE_SET_PROTOTYPE_METHOD(t, "utf16Slice", Utf16Slice);
 
   NODE_SET_PROTOTYPE_METHOD(constructor_template, "utf8Write", Buffer::Utf8Write);
   NODE_SET_PROTOTYPE_METHOD(constructor_template, "asciiWrite", Buffer::AsciiWrite);
