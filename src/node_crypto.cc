@@ -2239,7 +2239,7 @@ class Cipher : public ObjectWrap {
     int out_len=0, r;
     if (args[0]->IsString()) {
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::SizeFast(args[0], encoding);
+      size_t buflen = StringBytes::StorageSize(args[0], encoding);
       char* buf = static_cast<char*>(malloc(buflen));
       size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
       r = cipher->CipherUpdate(buf, written, &out, &out_len);
@@ -2548,7 +2548,7 @@ class Decipher : public ObjectWrap {
     int out_len=0, r;
     if (args[0]->IsString()) {
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::SizeFast(args[0], encoding);
+      size_t buflen = StringBytes::StorageSize(args[0], encoding);
       char* buf = static_cast<char*>(malloc(buflen));
       size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
       r = cipher->DecipherUpdate(buf, written, &out, &out_len);
@@ -2737,7 +2737,7 @@ class Hmac : public ObjectWrap {
     int r;
     if (args[0]->IsString()) {
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::SizeFast(args[0], encoding);
+      size_t buflen = StringBytes::StorageSize(args[0], encoding);
       char* buf = static_cast<char*>(malloc(buflen));
       size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
       r = hmac->HmacUpdate(buf, written);
@@ -2860,7 +2860,7 @@ class Hash : public ObjectWrap {
     int r;
     if (args[0]->IsString()) {
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::SizeFast(args[0], encoding);
+      size_t buflen = StringBytes::StorageSize(args[0], encoding);
       char* buf = static_cast<char*>(malloc(buflen));
       size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
       r = hash->HashUpdate(buf, written);
@@ -2888,6 +2888,11 @@ class Hash : public ObjectWrap {
       return ThrowException(Exception::Error(String::New("Not initialized")));
     }
 
+    enum encoding encoding = BUFFER;
+    if (args.Length() >= 1) {
+      encoding = ParseEncoding(args[0]->ToString(), BUFFER);
+    }
+
     unsigned char md_value[EVP_MAX_MD_SIZE];
     unsigned int md_len;
 
@@ -2895,11 +2900,8 @@ class Hash : public ObjectWrap {
     EVP_MD_CTX_cleanup(&hash->mdctx);
     hash->initialised_ = false;
 
-    Local<Value> outString;
-
-    outString = Encode(md_value, md_len, BUFFER);
-
-    return scope.Close(outString);
+    return scope.Close(StringBytes::Encode(
+          reinterpret_cast<const char*>(md_value), md_len, encoding));
   }
 
   Hash () : ObjectWrap () {
@@ -3021,7 +3023,7 @@ class Sign : public ObjectWrap {
     int r;
     if (args[0]->IsString()) {
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::SizeFast(args[0], encoding);
+      size_t buflen = StringBytes::StorageSize(args[0], encoding);
       char* buf = static_cast<char*>(malloc(buflen));
       size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
       r = sign->SignUpdate(buf, written);
@@ -3240,7 +3242,7 @@ class Verify : public ObjectWrap {
     int r;
     if (args[0]->IsString()) {
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::SizeFast(args[0], encoding);
+      size_t buflen = StringBytes::StorageSize(args[0], encoding);
       char* buf = static_cast<char*>(malloc(buflen));
       size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
       r = verify->VerifyUpdate(buf, written);
@@ -3277,8 +3279,15 @@ class Verify : public ObjectWrap {
     ssize_t kwritten = DecodeWrite(kbuf, klen, args[0], BINARY);
     assert(kwritten == klen);
 
-    ASSERT_IS_BUFFER(args[1]);
-    ssize_t hlen = Buffer::Length(args[1]);
+    ASSERT_IS_STRING_OR_BUFFER(args[1]);
+
+    // BINARY works for both buffers and binary strings.
+    enum encoding encoding = BINARY;
+    if (args.Length() >= 3) {
+      encoding = ParseEncoding(args[2]->ToString(), BINARY);
+    }
+
+    ssize_t hlen = StringBytes::Size(args[1], encoding);
 
     if (hlen < 0) {
       delete [] kbuf;
