@@ -198,114 +198,9 @@ Handle<Value> Buffer::BinarySlice(const Arguments &args) {
   Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
   SLICE_ARGS(args[0], args[1])
 
-  char *data = parent->data_ + start;
-  //Local<String> string = String::New(data, end - start);
-
-  Local<Value> b = Encode(data, end - start, BINARY);
-
-  return scope.Close(b);
-}
-
-
-static bool contains_non_ascii_slow(const char* buf, size_t len) {
-  for (size_t i = 0; i < len; ++i) {
-    if (buf[i] & 0x80) return true;
-  }
-  return false;
-}
-
-
-static bool contains_non_ascii(const char* src, size_t len) {
-  if (len < 16) {
-    return contains_non_ascii_slow(src, len);
-  }
-
-  const unsigned bytes_per_word = BITS_PER_LONG / CHAR_BIT;
-  const unsigned align_mask = bytes_per_word - 1;
-  const unsigned unaligned = reinterpret_cast<uintptr_t>(src) & align_mask;
-
-  if (unaligned > 0) {
-    const unsigned n = bytes_per_word - unaligned;
-    if (contains_non_ascii_slow(src, n)) return true;
-    src += n;
-    len -= n;
-  }
-
-#if BITS_PER_LONG == 64
-  typedef uint64_t word;
-  const uint64_t mask = 0x8080808080808080ll;
-#else
-  typedef uint32_t word;
-  const uint32_t mask = 0x80808080l;
-#endif
-
-  const word* srcw = reinterpret_cast<const word*>(src);
-
-  for (size_t i = 0, n = len / bytes_per_word; i < n; ++i) {
-    if (srcw[i] & mask) return true;
-  }
-
-  const unsigned remainder = len & align_mask;
-  if (remainder > 0) {
-    const size_t offset = len - remainder;
-    if (contains_non_ascii_slow(src + offset, remainder)) return true;
-  }
-
-  return false;
-}
-
-
-static void force_ascii_slow(const char* src, char* dst, size_t len) {
-  for (size_t i = 0; i < len; ++i) {
-    dst[i] = src[i] & 0x7f;
-  }
-}
-
-
-static void force_ascii(const char* src, char* dst, size_t len) {
-  if (len < 16) {
-    force_ascii_slow(src, dst, len);
-    return;
-  }
-
-  const unsigned bytes_per_word = BITS_PER_LONG / CHAR_BIT;
-  const unsigned align_mask = bytes_per_word - 1;
-  const unsigned src_unalign = reinterpret_cast<uintptr_t>(src) & align_mask;
-  const unsigned dst_unalign = reinterpret_cast<uintptr_t>(dst) & align_mask;
-
-  if (src_unalign > 0) {
-    if (src_unalign == dst_unalign) {
-      const unsigned unalign = bytes_per_word - src_unalign;
-      force_ascii_slow(src, dst, unalign);
-      src += unalign;
-      dst += unalign;
-      len -= src_unalign;
-    } else {
-      force_ascii_slow(src, dst, len);
-      return;
-    }
-  }
-
-#if BITS_PER_LONG == 64
-  typedef uint64_t word;
-  const uint64_t mask = ~0x8080808080808080ll;
-#else
-  typedef uint32_t word;
-  const uint32_t mask = ~0x80808080l;
-#endif
-
-  const word* srcw = reinterpret_cast<const word*>(src);
-  word* dstw = reinterpret_cast<word*>(dst);
-
-  for (size_t i = 0, n = len / bytes_per_word; i < n; ++i) {
-    dstw[i] = srcw[i] & mask;
-  }
-
-  const unsigned remainder = len & align_mask;
-  if (remainder > 0) {
-    const size_t offset = len - remainder;
-    force_ascii_slow(src + offset, dst + offset, remainder);
-  }
+  char* src = parent->data_ + start;
+  size_t slen = (end - start);
+  return scope.Close(StringBytes::Encode(src, slen, BINARY));
 }
 
 
@@ -314,18 +209,9 @@ Handle<Value> Buffer::AsciiSlice(const Arguments &args) {
   Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
   SLICE_ARGS(args[0], args[1])
 
-  char* data = parent->data_ + start;
-  size_t len = end - start;
-
-  if (contains_non_ascii(data, len)) {
-    char* out = new char[len];
-    force_ascii(data, out, len);
-    Local<String> rc = String::New(out, len);
-    delete[] out;
-    return scope.Close(rc);
-  }
-
-  return scope.Close(String::New(data, len));
+  char* src = parent->data_ + start;
+  size_t slen = (end - start);
+  return scope.Close(StringBytes::Encode(src, slen, ASCII));
 }
 
 
@@ -333,9 +219,10 @@ Handle<Value> Buffer::Utf8Slice(const Arguments &args) {
   HandleScope scope;
   Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
   SLICE_ARGS(args[0], args[1])
-  char *data = parent->data_ + start;
-  Local<String> string = String::New(data, end - start);
-  return scope.Close(string);
+
+  char* src = parent->data_ + start;
+  size_t slen = (end - start);
+  return scope.Close(StringBytes::Encode(src, slen, UTF8));
 }
 
 
@@ -343,30 +230,24 @@ Handle<Value> Buffer::Ucs2Slice(const Arguments &args) {
   HandleScope scope;
   Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
   SLICE_ARGS(args[0], args[1])
-  uint16_t *data = (uint16_t*)(parent->data_ + start);
-  Local<String> string = String::New(data, (end - start) / 2);
-  return scope.Close(string);
+
+  char* src = parent->data_ + start;
+  size_t slen = (end - start);
+  return scope.Close(StringBytes::Encode(src, slen, UCS2));
 }
+
 
 
 Handle<Value> Buffer::HexSlice(const Arguments &args) {
   HandleScope scope;
   Buffer* parent = ObjectWrap::Unwrap<Buffer>(args.This());
   SLICE_ARGS(args[0], args[1])
+
   char* src = parent->data_ + start;
-  uint32_t dstlen = (end - start) * 2;
-  if (dstlen == 0) return scope.Close(String::Empty());
-  char* dst = new char[dstlen];
-  for (uint32_t i = 0, k = 0; k < dstlen; i += 1, k += 2) {
-    static const char hex[] = "0123456789abcdef";
-    uint8_t val = static_cast<uint8_t>(src[i]);
-    dst[k + 0] = hex[val >> 4];
-    dst[k + 1] = hex[val & 15];
-  }
-  Local<String> string = String::New(dst, dstlen);
-  delete[] dst;
-  return scope.Close(string);
+  size_t slen = (end - start);
+  return scope.Close(StringBytes::Encode(src, slen, HEX));
 }
+
 
 
 Handle<Value> Buffer::Base64Slice(const Arguments &args) {
@@ -374,66 +255,10 @@ Handle<Value> Buffer::Base64Slice(const Arguments &args) {
   Buffer *parent = ObjectWrap::Unwrap<Buffer>(args.This());
   SLICE_ARGS(args[0], args[1])
 
-  unsigned slen = end - start;
+  size_t slen = end - start;
   const char* src = parent->data_ + start;
 
-  unsigned dlen = (slen + 2 - ((slen + 2) % 3)) / 3 * 4;
-  char* dst = new char[dlen];
-
-  unsigned a;
-  unsigned b;
-  unsigned c;
-  unsigned i;
-  unsigned k;
-  unsigned n;
-
-  static const char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                              "abcdefghijklmnopqrstuvwxyz"
-                              "0123456789+/";
-
-  i = 0;
-  k = 0;
-  n = slen / 3 * 3;
-
-  while (i < n) {
-    a = src[i + 0] & 0xff;
-    b = src[i + 1] & 0xff;
-    c = src[i + 2] & 0xff;
-
-    dst[k + 0] = table[a >> 2];
-    dst[k + 1] = table[((a & 3) << 4) | (b >> 4)];
-    dst[k + 2] = table[((b & 0x0f) << 2) | (c >> 6)];
-    dst[k + 3] = table[c & 0x3f];
-
-    i += 3;
-    k += 4;
-  }
-
-  if (n != slen) {
-    switch (slen - n) {
-    case 1:
-      a = src[i + 0] & 0xff;
-      dst[k + 0] = table[a >> 2];
-      dst[k + 1] = table[(a & 3) << 4];
-      dst[k + 2] = '=';
-      dst[k + 3] = '=';
-      break;
-
-    case 2:
-      a = src[i + 0] & 0xff;
-      b = src[i + 1] & 0xff;
-      dst[k + 0] = table[a >> 2];
-      dst[k + 1] = table[((a & 3) << 4) | (b >> 4)];
-      dst[k + 2] = table[(b & 0x0f) << 2];
-      dst[k + 3] = '=';
-      break;
-    }
-  }
-
-  Local<String> string = String::New(dst, dlen);
-  delete [] dst;
-
-  return scope.Close(string);
+  return scope.Close(StringBytes::Encode(src, slen, BASE64));
 }
 
 
@@ -710,7 +535,7 @@ Handle<Value> Buffer::ByteLength(const Arguments &args) {
   Local<String> s = args[0]->ToString();
   enum encoding e = ParseEncoding(args[1], UTF8);
 
-  return scope.Close(Integer::New(StringBytes::SizePrecise(s, e)));
+  return scope.Close(Integer::New(StringBytes::Size(s, e)));
 }
 
 
