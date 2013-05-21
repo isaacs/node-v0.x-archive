@@ -36,6 +36,7 @@ var server = http.createServer(function(req, res) {
     res.end(req.url);
   }, 50);
 });
+
 server.on('connect', function(req, socket, firstBodyChunk) {
   common.debug('Server got CONNECT request');
   serverConnected = true;
@@ -44,6 +45,7 @@ server.on('connect', function(req, socket, firstBodyChunk) {
     socket.end();
   });
 });
+
 server.listen(common.PORT, function() {
   var req = http.request({
     port: common.PORT,

@@ -62,11 +62,21 @@ var server = http.Server(function(req, res) {
 
   //assert.equal('127.0.0.1', res.connection.remoteAddress);
 });
+
+server.on('connection', function(socket) {
+  console.error('SERVER connection');
+  socket.unref();
+  socket.on('end', function() {
+    console.error('SERVER socket end');
+  });
+});
 server.listen(common.PORT);
 
 server.on('listening', function() {
   var agent = new http.Agent({ port: common.PORT, maxSockets: 1 });
-  http.get({
+  var socket = null;
+
+  var req = http.get({
     port: common.PORT,
     path: '/hello',
     headers: {'Accept': '*/*', 'Foo': 'bar'},
@@ -77,6 +87,10 @@ server.on('listening', function() {
     res.setEncoding('utf8');
     res.on('data', function(chunk) { body0 += chunk; });
     common.debug('Got /hello response');
+  });
+
+  req.on('socket', function(s) {
+    socket = s;
   });
 
   setTimeout(function() {
@@ -91,6 +105,12 @@ server.on('listening', function() {
       res.setEncoding('utf8');
       res.on('data', function(chunk) { body1 += chunk; });
       common.debug('Got /world response');
+      res.on('end', function() {
+        console.error('CLIENT res end');
+      });
+    });
+    req.on('socket', function(s) {
+      console.error('REQ2', s === socket);
     });
     req.end();
   }, 1);
