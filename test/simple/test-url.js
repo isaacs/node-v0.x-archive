@@ -525,7 +525,7 @@ var parseTests = {
     href: 'git+http://github.com/joyent/node.git'
   },
 
-  //if local1@domain1 is uses as a relative URL it may
+  //if local1@domain1 is used as a relative URL it may
   //be parse into auth@hostname, but here there is no
   //way to make it work in url.parse, I add the test to be explicit
   'local1@domain1': {
@@ -741,7 +741,153 @@ var parseTests = {
     'path': '/test',
   },
 
+  'http://a;b@c/': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a;b',
+    host: 'c',
+    hostname: 'c',
+    href: 'http://a%3Bb@c/',
+    pathname: '/',
+    path: '/'
+  },
+
+  'http://a@b@c/': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a@b',
+    host: 'c',
+    hostname: 'c',
+    href: 'http://a%40b@c/',
+    pathname: '/',
+    path: '/'
+  },
+
+  'http://a;b@c@d/': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a;b@c',
+    host: 'd',
+    hostname: 'd',
+    href: 'http://a%3Bb%40c@d/',
+    path: '/',
+    pathname: '/'
+  },
+
+  'http://a@b;c@d/': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a@b;c',
+    host: 'd',
+    hostname: 'd',
+    href: 'http://a%40b%3Bc@d/',
+    path: '/',
+    pathname: '/'
+  },
+
+  'http://a@b#c@d/': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a',
+    host: 'b',
+    hostname: 'b',
+    href: 'http://a@b/#c@d',
+    path: '/',
+    pathname: '/',
+    hash: '#c@d'
+  },
+
+  'http://a@b/c@d/': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a',
+    host: 'b',
+    hostname: 'b',
+    path: '/c@d',
+    pathname: '/c@d',
+    href: 'http://a@b/c@d'
+  },
+
+  'http://a@b?c@d/': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a',
+    host: 'b',
+    hostname: 'b',
+    path: '/?c@d',
+    pathname: '/',
+    search: '?c@d',
+    query: 'c@d',
+    href: 'http://a@b/?c@d'
+  },
+
+  'http://a;b<@c/d': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a;b<',
+    host: 'c',
+    hostname: 'c',
+    path: '/d',
+    pathname: '/d',
+    href: 'http://a%3Bb%3C@c/d'
+  },
+
+  'http://a;b<@c\n\nd/e': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a;b<',
+    host: 'cd',
+    hostname: 'cd',
+    path: '/e',
+    pathname: '/e',
+    href: 'http://a%3Bb%3C@cd/e'
+  },
+
+  'http://a;b<@c<d/e': {
+    protocol: 'http:',
+    slashes: true,
+    auth: 'a;b<',
+    host: 'c%3Cd',
+    hostname: 'c%3Cd',
+    path: '/e',
+    pathname: '/e',
+    href: 'http://a%3Bb%3C@c%3Cd/e'
+  }
 };
+
+
+// Malformed hostnames that cannot be interpreted any sane way.
+// Also, due to the semantics of OAuth et al, correcting malformed
+// hostnames introduces security vulnerabilities in some cases,
+// so it's best to just treat them as garbage.
+var invalid = [
+  'http://a@b;c/',
+  'http://a;b@c@/d/',
+  'http://a;b<@c%d/e'
+];
+
+var invalidParsed = {
+  // invalid url, all set to null
+  protocol: null,
+  slashes: null,
+  auth: null,
+  host: null,
+  port: null,
+  hostname: null,
+  hash: null,
+  search: null,
+  query: null,
+  pathname: null,
+  path: null,
+  href: null
+};
+
+invalid.forEach(function(invalidUrl) {
+  console.error('invalid %j', invalidUrl);
+  console.error('%j', url.parse(invalidUrl));
+  console.error('%j', invalidParsed);
+  assert.deepEqual(url.parse(invalidUrl), invalidParsed);
+});
 
 for (var u in parseTests) {
   var actual = url.parse(u),
@@ -754,6 +900,7 @@ for (var u in parseTests) {
     }
   });
 
+  console.error('%j %j', u, actual);
   assert.deepEqual(actual, expected);
   assert.deepEqual(spaced, expected);
 
