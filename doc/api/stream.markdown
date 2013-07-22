@@ -1518,3 +1518,4 @@ modify them.
 [`readable.resume()`]: #stream_readable_resume
 [`pause()`]: #stream_readable_pause
 [`unpipe()`]: #stream_readable_unpipe_destination
+[`pipe()`]: #stream_readable_pipe_destination_options
