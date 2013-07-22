@@ -110,6 +110,10 @@ and provided to your program as fast as possible.  In paused mode, you
 must explicitly call `stream.read()` to get chunks of data out.
 Streams start out in paused mode.
 
+**Note**: If no data event handlers are attached, and there are no
+[`pipe()`][] destinations, and the stream is switched into flowing
+mode, then data will be lost.
+
 You can switch to flowing mode by doing any of the following:
 
 * Adding a [`'data'` event][] handler to listen for data.
@@ -164,9 +168,9 @@ again when more data is available.
 
 * `chunk` {Buffer | String} The chunk of data.
 
-If you attach a `data` event listener, and it was not explicitly
-paused already, then it will switch the stream into flowing mode, and
-data will be passed to your handler as soon as it is available.
+Attaching a `data` event listener to a stream that has not been
+explicitly paused will switch the stream into flowing mode. Data will
+then be passed as soon as it is available.
 
 If you just want to get all the data out of the stream as fast as
 possible, this is the best way to do so.
