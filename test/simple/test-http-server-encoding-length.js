@@ -24,16 +24,16 @@ var assert = require('assert');
 var http = require('http');
 var util = require('util');
 
-var buf = new Buffer(43);
 var port = common.PORT;
 
 var data = 'R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+var buf = new Buffer(43);
+buf.write(data, 0, 43, 'base64');
 
 var server = http.createServer(function(req, res) {
   req.resume();
   res.writeHeader(200, {'Content-type': 'image/gif'});
   if (req.url == '/buf') {
-    buf.write(data, 0, 43, 'base64');
     res.write(buf);
   } else {
     res.write(data, 'base64');
@@ -44,6 +44,7 @@ var server = http.createServer(function(req, res) {
   var paths = ['/buf', '/'];
 
   function do_request(offset) {
+    console.error('do_request', offset, paths.length);
     var options = {
       host: 'localhost',
       port: port,
@@ -51,17 +52,22 @@ var server = http.createServer(function(req, res) {
       headers: {}
     };
     var req = http.request(options, function(res) {
+      console.error('got response', res.headers);
       var chunks = [];
 
       res.on('data', function(chunk) {
+        console.error('res got chunk', chunk.length, chunk.toString());
         chunks.push(chunk);
       });
       res.on('end', function() {
+        console.error('res end');
         var concat = Buffer.concat(chunks);
         assert.equal(concat.toString('base64'), data);
         if (++offset === paths.length) {
+          console.error('done');
           server.close();
         } else {
+          console.error('do next');
           do_request(offset);
         }
       });
