@@ -24,49 +24,49 @@ var assert = require('assert');
 var http = require('http');
 var util = require('util');
 
-var buf  = new Buffer(43);
+var buf = new Buffer(43);
 var port = common.PORT;
 
-var data = "R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+var data = 'R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
 var server = http.createServer(function(req, res) {
-    req.resume();
-    res.writeHeader(200, {"Content-type": "image/gif"});
-    if (req.url == "/buf") {
-        buf.write(data, 0, 43, "base64")
-        res.write(buf);
-    } else {
-        res.write(data, "base64");
-    }
-    res.end();
+  req.resume();
+  res.writeHeader(200, {'Content-type': 'image/gif'});
+  if (req.url == '/buf') {
+    buf.write(data, 0, 43, 'base64');
+    res.write(buf);
+  } else {
+    res.write(data, 'base64');
+  }
+  res.end();
 }).listen(port, function() {
-    var offset = 0;
-    var paths = ['/buf', '/'];
-    
-    function do_request(offset) {
-	      var options = {
-	          host: 'localhost',
-	          port: port,
-	          path: paths[offset],
-	          headers: {},
-	      };
-	      var req = http.request(options, function(res) {
-	          var chunks = [];
-	          
-	          res.on('data', function(chunk) {
-		            chunks.push(chunk);
-	          });
-	          res.on('end', function() {
-		            var concat = Buffer.concat(chunks);
-		            assert.ok(concat.toString('base64') === data, "Did not get expected data");
-		            if(++offset === paths.length) {
-		                server.close();
-		            } else {
-		                do_request(offset);
-		            }
-	          });
-	      });
-	      req.end();
-    }
-    do_request(0);
+  var offset = 0;
+  var paths = ['/buf', '/'];
+
+  function do_request(offset) {
+    var options = {
+      host: 'localhost',
+      port: port,
+      path: paths[offset],
+      headers: {}
+    };
+    var req = http.request(options, function(res) {
+      var chunks = [];
+
+      res.on('data', function(chunk) {
+        chunks.push(chunk);
+      });
+      res.on('end', function() {
+        var concat = Buffer.concat(chunks);
+        assert.equal(concat.toString('base64'), data);
+        if (++offset === paths.length) {
+          server.close();
+        } else {
+          do_request(offset);
+        }
+      });
+    });
+    req.end();
+  }
+  do_request(0);
 });
