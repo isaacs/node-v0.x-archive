@@ -20,6 +20,8 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "node_stat_watcher.h"
+#include "env.h"
+#include "env-inl.h"
 
 #include <assert.h>
 #include <string.h>
@@ -27,32 +29,30 @@
 
 namespace node {
 
+using v8::Context;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
 using v8::Handle;
 using v8::HandleScope;
 using v8::Integer;
+using v8::Isolate;
 using v8::Local;
 using v8::Object;
 using v8::String;
 using v8::Value;
 
-static Cached<String> onchange_sym;
-static Cached<String> onstop_sym;
 
-
-void StatWatcher::Initialize(Handle<Object> target) {
-  HandleScope scope(node_isolate);
+void StatWatcher::Initialize(Isolate* isolate, Handle<Object> target) {
+  HandleScope scope(isolate);
 
   Local<FunctionTemplate> t = FunctionTemplate::New(StatWatcher::New);
   t->InstanceTemplate()->SetInternalFieldCount(1);
-  t->SetClassName(FIXED_ONE_BYTE_STRING(node_isolate, "StatWatcher"));
+  t->SetClassName(FIXED_ONE_BYTE_STRING(isolate, "StatWatcher"));
 
   NODE_SET_PROTOTYPE_METHOD(t, "start", StatWatcher::Start);
   NODE_SET_PROTOTYPE_METHOD(t, "stop", StatWatcher::Stop);
 
-  target->Set(FIXED_ONE_BYTE_STRING(node_isolate, "StatWatcher"),
-              t->GetFunction());
+  target->Set(FIXED_ONE_BYTE_STRING(isolate, "StatWatcher"), t->GetFunction());
 }
 
 
@@ -61,9 +61,11 @@ static void Delete(uv_handle_t* handle) {
 }
 
 
-StatWatcher::StatWatcher() : ObjectWrap(),
-                             watcher_(new uv_fs_poll_t) {
-  uv_fs_poll_init(uv_default_loop(), watcher_);
+StatWatcher::StatWatcher(Environment* env)
+    : ObjectWrap()
+    , watcher_(new uv_fs_poll_t)
+    , env_(env) {
+  uv_fs_poll_init(env->event_loop(), watcher_);
   watcher_->data = static_cast<void*>(this);
 }
 
@@ -80,16 +82,17 @@ void StatWatcher::Callback(uv_fs_poll_t* handle,
                            const uv_stat_t* curr) {
   StatWatcher* wrap = static_cast<StatWatcher*>(handle->data);
   assert(wrap->watcher_ == handle);
-  HandleScope scope(node_isolate);
-  Local<Value> argv[3];
-  argv[0] = BuildStatsObject(curr);
-  argv[1] = BuildStatsObject(prev);
-  argv[2] = Integer::New(status, node_isolate);
-  if (onchange_sym.IsEmpty()) {
-    onchange_sym = FIXED_ONE_BYTE_STRING(node_isolate, "onchange");
-  }
-  MakeCallback(wrap->handle(node_isolate),
-               onchange_sym,
+  Environment* env = wrap->env();
+  Context::Scope context_scope(env->context());
+  HandleScope handle_scope(node_isolate);
+  Local<Value> argv[] = {
+    BuildStatsObject(env, curr),
+    BuildStatsObject(env, prev),
+    Integer::New(status, node_isolate)
+  };
+  MakeCallback(env,
+               wrap->handle(node_isolate),
+               env->onchange_string(),
                ARRAY_SIZE(argv),
                argv);
 }
@@ -97,8 +100,9 @@ void StatWatcher::Callback(uv_fs_poll_t* handle,
 
 void StatWatcher::New(const FunctionCallbackInfo<Value>& args) {
   assert(args.IsConstructCall());
+  Environment* env = Environment::GetCurrent(node_isolate);
   HandleScope scope(node_isolate);
-  StatWatcher* s = new StatWatcher();
+  StatWatcher* s = new StatWatcher(env);
   s->Wrap(args.This());
 }
 
@@ -119,12 +123,11 @@ void StatWatcher::Start(const FunctionCallbackInfo<Value>& args) {
 
 
 void StatWatcher::Stop(const FunctionCallbackInfo<Value>& args) {
-  HandleScope scope(node_isolate);
   StatWatcher* wrap = ObjectWrap::Unwrap<StatWatcher>(args.This());
-  if (onstop_sym.IsEmpty()) {
-    onstop_sym = FIXED_ONE_BYTE_STRING(node_isolate, "onstop");
-  }
-  MakeCallback(wrap->handle(node_isolate), onstop_sym, 0, NULL);
+  Environment* env = wrap->env();
+  Context::Scope context_scope(env->context());
+  HandleScope handle_scope(node_isolate);
+  MakeCallback(env, wrap->handle(node_isolate), env->onstop_string());
   wrap->Stop();
 }
 

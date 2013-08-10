@@ -58,6 +58,7 @@
 # define SIGKILL         9
 #endif
 
+#include "v8.h"  // NOLINT(build/include_order)
 #include "node_version.h"  // NODE_MODULE_VERSION
 #include "node_object_wrap.h"
 
@@ -94,9 +95,6 @@ NODE_EXTERN v8::Handle<v8::Value> MakeCallback(
 #if NODE_WANT_INTERNALS
 #include "node_internals.h"
 #endif
-
-#include "uv.h"
-#include "v8.h"
 
 #include <assert.h>
 
@@ -140,10 +138,10 @@ NODE_EXTERN int Start(int argc, char *argv[]);
 
 // Used to be a macro, hence the uppercase name.
 template <typename TypeName>
-inline void NODE_SET_METHOD(const TypeName& recv,
+inline void NODE_SET_METHOD(v8::Isolate* isolate,
+                            const TypeName& recv,
                             const char* name,
                             v8::FunctionCallback callback) {
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::FunctionTemplate> t = v8::FunctionTemplate::New(callback);
   v8::Local<v8::Function> fn = t->GetFunction();
@@ -151,18 +149,33 @@ inline void NODE_SET_METHOD(const TypeName& recv,
   fn->SetName(fn_name);
   recv->Set(fn_name, fn);
 }
+
+template <typename TypeName>
+inline void NODE_SET_METHOD(const TypeName& recv,
+                            const char* name,
+                            v8::FunctionCallback callback) {
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  NODE_SET_METHOD(isolate, recv, name, callback);
+}
 #define NODE_SET_METHOD node::NODE_SET_METHOD
 
 // Used to be a macro, hence the uppercase name.
 // Not a template because it only makes sense for FunctionTemplates.
-inline void NODE_SET_PROTOTYPE_METHOD(v8::Handle<v8::FunctionTemplate> recv,
+inline void NODE_SET_PROTOTYPE_METHOD(v8::Isolate* isolate,
+                                      v8::Handle<v8::FunctionTemplate> recv,
                                       const char* name,
                                       v8::FunctionCallback callback) {
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::FunctionTemplate> t = v8::FunctionTemplate::New(callback);
   recv->PrototypeTemplate()->Set(v8::String::NewFromUtf8(isolate, name),
                                  t->GetFunction());
+}
+
+inline void NODE_SET_PROTOTYPE_METHOD(v8::Handle<v8::FunctionTemplate> recv,
+                                      const char* name,
+                                      v8::FunctionCallback callback) {
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  NODE_SET_PROTOTYPE_METHOD(isolate, recv, name, callback);
 }
 #define NODE_SET_PROTOTYPE_METHOD node::NODE_SET_PROTOTYPE_METHOD
 
@@ -185,9 +198,6 @@ NODE_EXTERN ssize_t DecodeWrite(char *buf,
                                 v8::Handle<v8::Value>,
                                 enum encoding encoding = BINARY);
 
-v8::Local<v8::Object> BuildStatsObject(const uv_stat_t* s);
-
-
 #ifdef _WIN32
 NODE_EXTERN v8::Local<v8::Value> WinapiErrnoException(int errorno,
     const char *syscall = NULL,  const char *msg = "",
@@ -197,14 +207,21 @@ NODE_EXTERN v8::Local<v8::Value> WinapiErrnoException(int errorno,
 const char *signo_string(int errorno);
 
 
-NODE_EXTERN typedef void (* addon_register_func)(
-    v8::Handle<v8::Object> exports, v8::Handle<v8::Value> module);
+NODE_EXTERN typedef void (*addon_register_func)(
+    v8::Handle<v8::Object> exports,
+    v8::Handle<v8::Value> module);
+
+NODE_EXTERN typedef void (*addon_context_register_func)(
+    v8::Handle<v8::Object> exports,
+    v8::Handle<v8::Value> module,
+    v8::Handle<v8::Context> context);
 
 struct node_module_struct {
   int version;
   void *dso_handle;
   const char *filename;
   node::addon_register_func register_func;
+  node::addon_context_register_func register_context_func;
   const char *modname;
 };
 
@@ -226,7 +243,19 @@ node_module_struct* get_builtin_module(const char *name);
     NODE_MODULE_EXPORT node::node_module_struct modname ## _module =  \
     {                                                                 \
       NODE_STANDARD_MODULE_STUFF,                                     \
-      (node::addon_register_func)regfunc,                             \
+      (node::addon_register_func) (regfunc),                          \
+      NULL,                                                           \
+      NODE_STRINGIFY(modname)                                         \
+    };                                                                \
+  }
+
+#define NODE_MODULE_CONTEXT_AWARE(modname, regfunc)                   \
+  extern "C" {                                                        \
+    NODE_MODULE_EXPORT node::node_module_struct modname ## _module =  \
+    {                                                                 \
+      NODE_STANDARD_MODULE_STUFF,                                     \
+      NULL,                                                           \
+      (regfunc),                                                      \
       NODE_STRINGIFY(modname)                                         \
     };                                                                \
   }
