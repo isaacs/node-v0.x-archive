@@ -39,18 +39,30 @@ var httpServer = http.createServer(function(req, res) {
   // Also, mix up the encodings a bit.
   var chunk = new Array(1024 + 1).join('7');
   var bchunk = new Buffer(chunk);
+  res.on('drain', function() {
+    console.error('RES DRAIN!');
+  });
+  res.socket.on('drain', function() {
+    console.error('RES SOCKET DRAIN!');
+  });
+
+  var ret = true;
   for (var i = 0; i < 1024; i++) {
-    res.write(chunk);
-    res.write(bchunk);
-    res.write(chunk, 'hex');
+    ret = res.write(chunk) && ret;
+    ret = res.write(bchunk) && ret;
+    ret = res.write(chunk, 'hex') && ret;
   }
+
+  console.error('after write ret=%j', ret);
   // Get .bytesWritten while buffer is not empty
   assert(res.connection.bytesWritten > 0);
 
-  res.end(body);
+  console.error('ending now');
+  res.end(body, function() {
+    console.error('res end cb');
+  });
 });
 
 httpServer.listen(common.PORT, function() {
   http.get({ port: common.PORT });
 });
-

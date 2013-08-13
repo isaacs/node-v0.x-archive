@@ -28,17 +28,19 @@ var serverRequests = 0;
 var clientResponses = 0;
 
 var server = http.createServer(function(req, res) {
-  common.debug('Server got GET request');
+  console.error('Server got GET request');
   req.resume();
   ++serverRequests;
   res.writeHead(200);
+  console.error('SERVER res.write("")');
   res.write('');
   setTimeout(function() {
+    console.error('SERVER res.end(%j)', req.url);
     res.end(req.url);
   }, 50);
 });
 server.on('connect', function(req, socket, firstBodyChunk) {
-  common.debug('Server got CONNECT request');
+  console.error('Server got CONNECT request');
   serverConnected = true;
   socket.write('HTTP/1.1 200 Connection established\r\n\r\n');
   socket.resume();
@@ -53,7 +55,7 @@ server.listen(common.PORT, function() {
     path: 'google.com:80'
   });
   req.on('connect', function(res, socket, firstBodyChunk) {
-    common.debug('Client got CONNECT response');
+    console.error('Client got CONNECT response');
     socket.end();
     socket.on('end', function() {
       doRequest(0);
@@ -69,13 +71,15 @@ function doRequest(i) {
     port: common.PORT,
     path: '/request' + i
   }, function(res) {
-    common.debug('Client got GET response');
+    console.error('Client got GET response');
     var data = '';
     res.setEncoding('utf8');
     res.on('data', function(chunk) {
+      console.error('RESPONSE got chunk %j', chunk);
       data += chunk;
     });
     res.on('end', function() {
+      console.error('RESPONSE got end %j', data);
       assert.equal(data, '/request' + i);
       ++clientResponses;
       if (clientResponses === 2) {
