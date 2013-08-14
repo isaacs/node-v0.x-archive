@@ -106,8 +106,8 @@ function test(handler, request_generator, response_validator) {
     assert.equal(0, req.httpVersionMinor);
     res.sendDate = false;
     res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.write('Hello, '); res._send('');
-    res.write('world!'); res._send('');
+    res.write('Hello, ');
+    res.write('world!');
     res.end();
   }
 
@@ -143,8 +143,8 @@ function test(handler, request_generator, response_validator) {
     assert.equal(1, req.httpVersionMinor);
     res.sendDate = false;
     res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.write('Hello, '); res._send('');
-    res.write('world!'); res._send('');
+    res.write('Hello, ');
+    res.write('world!');
     res.end();
   }
 
