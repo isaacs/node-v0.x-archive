@@ -108,10 +108,6 @@ server.listen(common.PORT, function() {
     function test() {
       server.close();
       assert(sec.connection.destroyed);
-      if (sec.output.length || sec.outputEncodings.length)
-        console.error('bad happened', sec.output, sec.outputEncodings);
-      assert.equal(sec.output.length, 0);
-      assert.equal(sec.outputEncodings, 0);
       assert(sawFalseWrite);
       assert(gotFirstResponse);
       assert(gotFirstData);
