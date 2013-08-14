@@ -40,6 +40,7 @@ var cookies = [
 ];
 
 var s = http.createServer(function(req, res) {
+  console.error('test: %j', test);
   switch (test) {
     case 'headers':
       assert.throws(function() { res.setHeader() });
@@ -47,10 +48,14 @@ var s = http.createServer(function(req, res) {
       assert.throws(function() { res.getHeader() });
       assert.throws(function() { res.removeHeader() });
 
+      console.error('raw after bad sets', res.rawHeaders, res._headerIndexes);
+
       res.setHeader('x-test-header', 'testing');
       res.setHeader('X-TEST-HEADER2', 'testing');
       res.setHeader('set-cookie', cookies);
       res.setHeader('x-test-array-header', [1, 2, 3]);
+
+      console.error('raw after good sets', res.rawHeaders, res._headerIndexes);
 
       var val1 = res.getHeader('x-test-header');
       var val2 = res.getHeader('x-test-header2');
@@ -58,6 +63,7 @@ var s = http.createServer(function(req, res) {
       assert.equal(val2, 'testing');
 
       res.removeHeader('x-test-header2');
+      console.error('raw after remove x-test-header2', res.rawHeaders, res._headerIndexes);
       break;
 
     case 'contentLength':
@@ -104,6 +110,8 @@ function nextTest() {
                      'testing');
         assert.equal(response.headers['x-test-array-header'],
                      [1, 2, 3].join(', '));
+        console.error('got cookies:\n%j', response.headers['set-cookie']);
+        console.error('want cookies:\n%j', cookies);
         assert.deepEqual(cookies,
                          response.headers['set-cookie']);
         assert.equal(response.headers['x-test-header2'] !== undefined, false);

@@ -55,7 +55,7 @@ var server = http.createServer(function (req, res) {
 
   b.on('error', function (er) {
     caughtB = true;
-    console.error('Error encountered', er)
+    console.error('Error encountered on B', er)
     if (res) {
       res.writeHead(500);
       res.end('An error occurred');
@@ -67,7 +67,12 @@ var server = http.createServer(function (req, res) {
   // XXX this bind should not be necessary.
   // the write cb behavior in http/net should use an
   // event so that it picks up the domain handling.
-  res.write('HELLO\n', b.bind(function() {
+  //
+  // Note: NEVER EVER WRITE TO THE SOCKET DIRECTLY LIKE THIS
+  // It's pretty much guaranteed to be an error in a chunked-encoding
+  // outgoing message.  Of course, in this test of error handling, that
+  // happens to be just the sort of bad behavior we're looking for.
+  res.socket.write('HELLO\n', b.bind(function() {
     throw new Error('this kills domain B, not A');
   }));
 
@@ -79,16 +84,26 @@ var req = http.get({ host: 'localhost', port: common.PORT })
 // add the request to the C domain
 c.add(req);
 
+req.on('socket', function(socket) {
+  socket.on('data', function(c) {
+    console.error('RES SOCKET DATA %j', c.toString());
+  });
+});
+
 req.on('response', function(res) {
-  console.error('got response');
+  console.error('got response on C req, pipe to stdout', res.headers);
   // add the response object to the C domain
   c.add(res);
+  res.emit = function(orig) { return function(ev, arg) {
+    console.error('RES EMIT %j %j', ev, arg);
+    return orig.apply(this, arguments);
+  }}(res.emit);
   res.pipe(process.stdout);
 });
 
 c.on('error', function(er) {
+  console.error('Error on c', er);
   caughtC = true;
-  console.error('Error on c', er.message);
 });
 
 process.on('exit', function() {
