@@ -119,6 +119,10 @@ qsColonTestCases.forEach(function(testCase) {
   assert.deepEqual(testCase[2], qs.parse(testCase[0], ';', ':'));
 });
 
+qsColonTestCases.forEach(function(testCase) {
+  assert.deepEqual(testCase[2], qs.parse(testCase[0], { sep: ';', eq: ':' }));
+});
+
 // test the weird objects, that they get parsed properly
 qsWeirdObjects.forEach(function(testCase) {
   assert.deepEqual(testCase[2], qs.parse(testCase[1]));

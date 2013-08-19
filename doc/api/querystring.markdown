@@ -23,14 +23,22 @@ Example:
     // returns
     'foo:bar;baz:qux'
 
-## querystring.parse(str, [sep], [eq], [options])
+## querystring.parse(str, [options])
 
-Deserialize a query string to an object.
-Optionally override the default separator (`'&'`) and assignment (`'='`)
-characters.
+* `str` {String} The query string to be parsed.
+* `options` {Object} The following options are configurable:
+  * `sep` {String} Field separator.  Defaults to `'&'`
+  * `eq` {String} Key/value separator. Defaults to `'='`
+  * `maxKeys` {Number} Maximum number of keys to parse. Defaults to
+    `l000`.  Set to `0` to allow any number of keys.
 
-Options object may contain `maxKeys` property (equal to 1000 by default), it'll
-be used to limit processed keys. Set it to 0 to remove key count limitation.
+Deserialize a query string to an object.  Optionally override the
+default separator (`'&'`) and assignment (`'='`) characters using the
+options object.
+
+Options object may contain `maxKeys` property (equal to 1000 by
+default), it'll be used to limit processed keys. Set it to 0 to remove
+key count limitation.
 
 Example:
 
