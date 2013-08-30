@@ -341,6 +341,10 @@ void InitDTrace(Handle<Object> target) {
   init_etw();
 #endif
 
+  static bool did_global_init = false;
+  if (did_global_init) return;
+  did_global_init = true;
+
 #if defined HAVE_DTRACE || defined HAVE_ETW || defined HAVE_SYSTEMTAP
   v8::V8::AddGCPrologueCallback((GCPrologueCallback)dtrace_gc_start);
   v8::V8::AddGCEpilogueCallback((GCEpilogueCallback)dtrace_gc_done);

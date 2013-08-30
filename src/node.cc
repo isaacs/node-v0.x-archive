@@ -2611,6 +2611,162 @@ void Load(Environment* env) {
   f->Call(global, 1, &arg);
 }
 
+
+static bool Tokenize(const char* input, const char** start, const char** end) {
+  for (;;) {
+    if (*input == ' ') {
+      input += 1;
+      continue;
+    }
+    if (*input == '\0') {
+      return false;
+    }
+    break;
+  }
+
+  *start = input;
+
+  for (;;) {
+    if (*input == ' ' || *input == '\0') {
+      break;
+    }
+    if (*input == '\\' && input[1] != '\0') {
+      input += 2;
+      continue;
+    }
+    input += 1;
+  }
+
+  *end = input;
+  return true;
+}
+
+
+static void InPlaceUnescape(char* input) {
+  size_t n = 0;
+  for (size_t i = 0; input[i] != '\0'; i += 1, n += 1) {
+    if (input[i] == '\\' && input[i+1] != '\0') {
+      i += 1;
+    }
+    input[n] = input[i];
+  }
+  input[n] = '\0';
+}
+
+
+class ExecutionContext {
+ public:
+  static void Add(const char* progname, const char* args);
+  static ExecutionContext* Next();
+  void Dispose();
+  int argc() const;
+  const char* const* argv() const;
+ private:
+  ExecutionContext(const char* progname, const char* args);
+  ~ExecutionContext();
+  static size_t Count(const char* args);
+  static char** Parse(const char* progname, const char* args);
+  static QUEUE queue;
+  QUEUE queue_;
+  size_t argc_;
+  char** const argv_;
+};
+
+QUEUE ExecutionContext::queue = {
+  &ExecutionContext::queue,
+  &ExecutionContext::queue
+};
+
+
+void ExecutionContext::Add(const char* progname, const char* args) {
+  new ExecutionContext(progname, args);
+}
+
+
+ExecutionContext* ExecutionContext::Next() {
+  if (QUEUE_EMPTY(&queue)) {
+    return NULL;
+  }
+  QUEUE* q = reinterpret_cast<QUEUE*>(QUEUE_HEAD(&queue));
+  QUEUE_REMOVE(q);
+  return container_of(q, ExecutionContext, queue_);
+}
+
+
+size_t ExecutionContext::Count(const char* args) {
+  const char* start = args;
+  const char* end = NULL;
+  size_t count = 0;
+  while (Tokenize(start, &start, &end)) {
+    count += 1;
+    start = end;
+  }
+  return count;
+}
+
+
+char** ExecutionContext::Parse(const char* progname, const char* args) {
+  size_t progname_len = 1 + strlen(progname);
+  size_t num_context_args = Count(args);
+  size_t storage_size =
+      sizeof(char*) * (num_context_args + 2) +  // NOLINT(runtime/sizeof)
+      sizeof('\0') * num_context_args +
+      progname_len +
+      strlen(args);
+  char** argv = reinterpret_cast<char**>(new char[storage_size]);
+  char* argp = reinterpret_cast<char*>(argv + num_context_args + 1);
+
+  argv[0] = argp;
+  memcpy(argp, progname, progname_len);
+  argp += progname_len;
+
+  const char* start = args;
+  const char* end = NULL;
+  size_t index = 1;
+  while (Tokenize(start, &start, &end)) {
+    size_t size = end - start;
+    memcpy(argp, start, size);
+    argp[size] = '\0';
+    argv[index] = argp;
+    InPlaceUnescape(argp);
+    argp += size + 1;
+    index += 1;
+    start = end;
+  }
+  assert(index == 1 + num_context_args);
+  argv[index] = NULL;
+  return argv;
+}
+
+
+// FIXME(bnoordhuis) Don't tokenize the input string thrice.
+ExecutionContext::ExecutionContext(const char* progname, const char* args)
+    : argc_(1 + Count(args))
+    , argv_(Parse(progname, args)) {
+  QUEUE_INSERT_TAIL(&queue, &queue_);
+}
+
+
+ExecutionContext::~ExecutionContext() {
+  delete reinterpret_cast<char*>(argv_);
+}
+
+
+void ExecutionContext::Dispose() {
+  delete this;
+}
+
+
+int ExecutionContext::argc() const {
+  return static_cast<int>(argc_);
+}
+
+
+const char* const* ExecutionContext::argv() const {
+  return argv_;
+}
+
+
 static void PrintHelp();
 
 static void ParseDebugOpt(const char* arg) {
@@ -2715,7 +2871,9 @@ static void ParseArgs(int* argc,
     const char* const arg = argv[index];
     unsigned int args_consumed = 1;
 
-    if (strstr(arg, "--debug") == arg) {
+    if (strncmp(arg, "--context=", sizeof("--context=") - 1) == 0) {
+      ExecutionContext::Add(argv[0], arg + sizeof("--context=") - 1);
+    } else if (strstr(arg, "--debug") == arg) {
       ParseDebugOpt(arg);
     } else if (strcmp(arg, "--version") == 0 || strcmp(arg, "-v") == 0) {
       printf("%s\n", NODE_VERSION);
@@ -3229,6 +3387,20 @@ int Start(int argc, char** argv) {
     Locker locker(node_isolate);
     Environment* env =
         CreateEnvironment(node_isolate, argc, argv, exec_argc, exec_argv);
+    while (ExecutionContext* ec = ExecutionContext::Next()) {
+      const char* fake_exec_argv[] = {
+        ec->argv()[0],
+        ec->argv()[1],
+        NULL
+      };
+      int fake_exec_argc = ARRAY_SIZE(fake_exec_argv) - 1;
+      CreateEnvironment(node_isolate,
+                        ec->argc(),
+                        ec->argv(),
+                        fake_exec_argc,
+                        fake_exec_argv);
+      ec->Dispose();
+    }
     Context::Scope context_scope(env->context());
     HandleScope handle_scope(env->isolate());
     uv_run(env->event_loop(), UV_RUN_DEFAULT);
