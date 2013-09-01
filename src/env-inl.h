@@ -54,7 +54,7 @@ inline void Environment::IsolateData::Release() {
 }
 
 inline Environment::IsolateData::IsolateData(v8::Isolate* isolate)
-    : event_loop_(uv_loop_new())
+    : event_loop_(uv_default_loop())
     , isolate_(isolate)
     , ref_count_(0) {
 #define V(PropertyName, StringValue, Flags)                                   \
@@ -73,7 +73,6 @@ inline Environment::IsolateData::IsolateData(v8::Isolate* isolate)
 }
 
 inline Environment::IsolateData::~IsolateData() {
-  uv_loop_delete(event_loop());
   event_loop_ = NULL;
   isolate_ = NULL;
 }
