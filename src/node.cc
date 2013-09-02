@@ -2656,11 +2656,13 @@ static void InPlaceUnescape(char* input) {
 
 class ExecutionContext {
  public:
+  static const char* current_security_token;
   static void Add(const char* progname, const char* args);
   static ExecutionContext* Next();
   void Dispose();
   int argc() const;
   const char* const* argv() const;
+  const char* security_token() const;
  private:
   ExecutionContext(const char* progname, const char* args);
   ~ExecutionContext();
@@ -2670,7 +2672,10 @@ class ExecutionContext {
   QUEUE queue_;
   size_t argc_;
   char** const argv_;
+  const char* security_token_;
 };
+
+const char* ExecutionContext::current_security_token = NULL;
 
 QUEUE ExecutionContext::queue = {
   &ExecutionContext::queue,
@@ -2742,13 +2747,20 @@ char** ExecutionContext::Parse(const char* progname, const char* args) {
 // FIXME(bnoordhuis) Don't tokenize the input string thrice.
 ExecutionContext::ExecutionContext(const char* progname, const char* args)
     : argc_(1 + Count(args))
-    , argv_(Parse(progname, args)) {
+    , argv_(Parse(progname, args))
+    , security_token_(NULL) {
+  if (current_security_token != NULL) {
+    size_t size = 1 + strlen(current_security_token);
+    void* buffer = memcpy(new char[size], current_security_token, size);
+    security_token_ = static_cast<const char*>(buffer);
+  }
   QUEUE_INSERT_TAIL(&queue, &queue_);
 }
 
 
 ExecutionContext::~ExecutionContext() {
-  delete reinterpret_cast<char*>(argv_);
+  delete reinterpret_cast<char*>(argv_);  // Allocated as new char[...].
+  delete[] security_token_;
 }
 
 
@@ -2764,6 +2776,11 @@ int ExecutionContext::argc() const {
 
 const char* const* ExecutionContext::argv() const {
   return argv_;
+}
+
+
+const char* ExecutionContext::security_token() const {
+  return security_token_;
 }
 
 
@@ -2873,6 +2890,11 @@ static void ParseArgs(int* argc,
 
     if (strncmp(arg, "--context=", sizeof("--context=") - 1) == 0) {
       ExecutionContext::Add(argv[0], arg + sizeof("--context=") - 1);
+    } else if (strncmp(arg,
+                       "--security-token=",
+                       sizeof("--security-token=") - 1) == 0) {
+      ExecutionContext::current_security_token =
+          arg + sizeof("--security-token=") - 1;
     } else if (strstr(arg, "--debug") == arg) {
       ParseDebugOpt(arg);
     } else if (strcmp(arg, "--version") == 0 || strcmp(arg, "-v") == 0) {
@@ -3342,6 +3364,7 @@ void EmitExit(Environment* env) {
 
 
 Environment* CreateEnvironment(Isolate* isolate,
+                               const char* security_token,
                                int argc,
                                const char* const* argv,
                                int exec_argc,
@@ -3349,6 +3372,17 @@ Environment* CreateEnvironment(Isolate* isolate,
   HandleScope handle_scope(isolate);
 
   Local<Context> context = Context::New(isolate);
+  if (security_token != NULL) {
+    // Internalize string. Security tokens are compared by identity, not value.
+    const uint8_t* security_token_bytes =
+        reinterpret_cast<const uint8_t*>(security_token);
+    Local<String> security_token_string =
+        String::NewFromOneByte(isolate,
+                               security_token_bytes,
+                               String::kInternalizedString);
+    context->SetSecurityToken(security_token_string);
+  }
+
   Context::Scope context_scope(context);
   Environment* env = Environment::New(context);
 
@@ -3386,7 +3420,12 @@ int Start(int argc, char** argv) {
   {
     Locker locker(node_isolate);
     Environment* env =
-        CreateEnvironment(node_isolate, argc, argv, exec_argc, exec_argv);
+        CreateEnvironment(node_isolate,
+                          ExecutionContext::current_security_token,
+                          argc,
+                          argv,
+                          exec_argc,
+                          exec_argv);
     while (ExecutionContext* ec = ExecutionContext::Next()) {
       const char* fake_exec_argv[] = {
         ec->argv()[0],
@@ -3395,6 +3434,7 @@ int Start(int argc, char** argv) {
       };
       int fake_exec_argc = ARRAY_SIZE(fake_exec_argv) - 1;
       CreateEnvironment(node_isolate,
+                        ec->security_token(),
                         ec->argc(),
                         ec->argv(),
                         fake_exec_argc,
