@@ -1076,11 +1076,9 @@ Handle<Value> MakeCallback(const Handle<Object> object,
                            const char* method,
                            int argc,
                            Handle<Value> argv[]) {
-  // FIXME(bnoordhuis) This should fetch the Environment from the Context
-  // where the object lives in, which may be different from the _current_
-  // context.
-  Environment* env = Environment::GetCurrent(node_isolate);
-  Context::Scope context_scope(env->context());
+  Local<Context> context = object->CreationContext();
+  Environment* env = Environment::GetCurrent(context);
+  Context::Scope context_scope(context);
   HandleScope handle_scope(node_isolate);
   return handle_scope.Close(MakeCallback(env, object, method, argc, argv));
 }
@@ -1090,11 +1088,9 @@ Handle<Value> MakeCallback(const Handle<Object> object,
                            const Handle<String> symbol,
                            int argc,
                            Handle<Value> argv[]) {
-  // FIXME(bnoordhuis) This should fetch the Environment from the Context
-  // where the object lives in, which may be different from the _current_
-  // context.
-  Environment* env = Environment::GetCurrent(node_isolate);
-  Context::Scope context_scope(env->context());
+  Local<Context> context = object->CreationContext();
+  Environment* env = Environment::GetCurrent(context);
+  Context::Scope context_scope(context);
   HandleScope handle_scope(node_isolate);
   return handle_scope.Close(MakeCallback(env, object, symbol, argc, argv));
 }
@@ -1104,11 +1100,9 @@ Handle<Value> MakeCallback(const Handle<Object> object,
                            const Handle<Function> callback,
                            int argc,
                            Handle<Value> argv[]) {
-  // FIXME(bnoordhuis) This should fetch the Environment from the Context
-  // where the object lives in, which may be different from the _current_
-  // context.
-  Environment* env = Environment::GetCurrent(node_isolate);
-  Context::Scope context_scope(env->context());
+  Local<Context> context = object->CreationContext();
+  Environment* env = Environment::GetCurrent(context);
+  Context::Scope context_scope(context);
   HandleScope handle_scope(node_isolate);
   return handle_scope.Close(MakeCallback(env, object, callback, argc, argv));
 }
@@ -1118,11 +1112,9 @@ Handle<Value> MakeDomainCallback(const Handle<Object> object,
                                  const Handle<Function> callback,
                                  int argc,
                                  Handle<Value> argv[]) {
-  // FIXME(bnoordhuis) This should fetch the Environment from the Context
-  // where the object lives in, which may be different from the _current_
-  // context.
-  Environment* env = Environment::GetCurrent(node_isolate);
-  Context::Scope context_scope(env->context());
+  Local<Context> context = object->CreationContext();
+  Environment* env = Environment::GetCurrent(context);
+  Context::Scope context_scope(context);
   HandleScope handle_scope(node_isolate);
   return handle_scope.Close(
       MakeDomainCallback(env, object, callback, argc, argv));
