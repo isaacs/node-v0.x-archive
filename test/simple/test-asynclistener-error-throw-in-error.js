@@ -21,46 +21,58 @@
 
 var common = require('../common');
 var assert = require('assert');
-var net = require('net');
+var spawn = require('child_process').spawn;
+
+var checkStr = 'WRITTEN ON EXIT\n';
+
+if (process.argv[2] === 'child')
+  runChild();
+else
+  runParent();
 
 
-// TODO(trevnorris): Test has the flaw that it's not checking if the async
-// flag has been removed on the class instance. Though currently there's
-// no way to do that.
-var listener = process.addAsyncListener(function() { });
+function runChild() {
+  var cntr = 0;
 
-
-// Test timers
-
-setImmediate(function() {
-  assert.equal(this._asyncQueue.length, 0);
-}).removeAsyncListener(listener);
-
-setTimeout(function() {
-  assert.equal(this._asyncQueue.length, 0);
-}).removeAsyncListener(listener);
-
-setInterval(function() {
-  clearInterval(this);
-  assert.equal(this._asyncQueue.length, 0);
-}).removeAsyncListener(listener);
-
-
-// Test net
-
-var server = net.createServer(function(c) {
-  c._handle.removeAsyncListener(listener);
-  assert.equal(c._handle._asyncQueue.length, 0);
-});
-
-server.listen(common.PORT, function() {
-  server._handle.removeAsyncListener(listener);
-  assert.equal(server._handle._asyncQueue.length, 0);
-
-  var client = net.connect(common.PORT, function() {
-    client._handle.removeAsyncListener(listener);
-    assert.equal(client._handle._asyncQueue.length, 0);
-    client.end();
-    server.close();
+  var key = process.addAsyncListener(function() { }, {
+    error: function onError() {
+      cntr++;
+      throw new Error('onError');
+    }
   });
-});
+
+  process.on('unhandledException', function() {
+    // Throwing in 'error' should bypass unhandledException.
+    process.exit(2);
+  });
+
+  process.on('exit', function() {
+    // Make sure that we can still write out to stderr even when the
+    // process dies.
+    process._rawDebug(checkStr);
+  });
+
+  process.nextTick(function() {
+    throw new Error('nextTick');
+  });
+}
+
+
+function runParent() {
+  var childStr = '';
+  var child = spawn(process.execPath, [__filename, 'child']);
+  child.stderr.on('data', function(chunk) {
+    childStr += chunk.toString();
+  });
+
+  child.on('exit', function(code) {
+    // This is thrown when Node throws from _fatalException.
+    assert.equal(code, 7);
+  });
+
+  process.on('exit', function() {
+    assert.notEqual(childStr.indexOf(checkStr), -1);
+    console.log('ok');
+  });
+}
+
