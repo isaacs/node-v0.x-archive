@@ -1,4 +1,18 @@
-Evented I/O for V8 javascript.
+Node Forward
+===
+
+Node Forward is a broad community effort to improve Node, JavaScript,
+and their ecosystem through open collaboration.
+
+This repository is a GitHub fork of
+[joyent/node](https://github.com/joyent/node) where contributions,
+releases, and contributorship are under an
+[open governance model](./CONTRIBUTING.md#governance).
+
+This repository is still collaborating with Joyent and hopes to eventually
+merge our efforts.
+
+Node - Evented I/O for V8 javascript.
 ===
 
 ### To build:
